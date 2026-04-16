@@ -124,6 +124,28 @@ function FreelancerDashboard() {
     await startTimer(clientId, projectId);
   };
 
+  const handleAddClient = async () => {
+    if (!newClientName.trim()) return;
+    const { data, error } = await supabase.from("clients").insert({ name: newClientName.trim() }).select().single();
+    if (error) { toast.error("Failed to add client"); return; }
+    setNewClientName("");
+    setAddClientOpen(false);
+    toast.success("Client added");
+    fetchData();
+    if (data) setSelectedClient(data.id);
+  };
+
+  const handleAddProject = async () => {
+    if (!newProjectName.trim() || !selectedClient) return;
+    const { data, error } = await supabase.from("projects").insert({ name: newProjectName.trim(), client_id: selectedClient }).select().single();
+    if (error) { toast.error("Failed to add project"); return; }
+    setNewProjectName("");
+    setAddProjectOpen(false);
+    toast.success("Project added");
+    fetchData();
+    if (data) setSelectedProject(data.id);
+  };
+
   const todayPct = Math.min(100, (todayMinutes / TARGET_DAY) * 100);
   const weekPct = Math.min(100, (weekMinutes / TARGET_WEEK) * 100);
 
