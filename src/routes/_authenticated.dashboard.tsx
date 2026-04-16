@@ -223,11 +223,17 @@ function FreelancerDashboard() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <Select value={selectedClient} onValueChange={(v) => { setSelectedClient(v); setSelectedProject(""); }}>
                 <SelectTrigger><SelectValue placeholder="Select client" /></SelectTrigger>
-                <SelectContent>{clients.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
+                <SelectContent>
+                  {clients.length === 0 && <p className="text-xs text-muted-foreground px-3 py-2">No clients yet</p>}
+                  {clients.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                </SelectContent>
               </Select>
               <Select value={selectedProject} onValueChange={setSelectedProject}>
                 <SelectTrigger><SelectValue placeholder="Select project" /></SelectTrigger>
-                <SelectContent>{filteredProjects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent>
+                <SelectContent>
+                  {filteredProjects.length === 0 && <p className="text-xs text-muted-foreground px-3 py-2">No projects available</p>}
+                  {filteredProjects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                </SelectContent>
               </Select>
             </div>
             <Button onClick={handleStart} disabled={!selectedClient || !selectedProject || timerLoading} className="rounded-xl">
@@ -247,11 +253,17 @@ function FreelancerDashboard() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <Select value={selectedClient} onValueChange={(v) => { setSelectedClient(v); setSelectedProject(""); }}>
                 <SelectTrigger><SelectValue placeholder="Select client" /></SelectTrigger>
-                <SelectContent>{clients.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
+                <SelectContent>
+                  {clients.length === 0 && <p className="text-xs text-muted-foreground px-3 py-2">No clients yet</p>}
+                  {clients.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                </SelectContent>
               </Select>
               <Select value={selectedProject} onValueChange={setSelectedProject}>
                 <SelectTrigger><SelectValue placeholder="Select project" /></SelectTrigger>
-                <SelectContent>{filteredProjects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent>
+                <SelectContent>
+                  {filteredProjects.length === 0 && <p className="text-xs text-muted-foreground px-3 py-2">No projects available</p>}
+                  {filteredProjects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                </SelectContent>
               </Select>
             </div>
             <div className="grid grid-cols-2 gap-3">
