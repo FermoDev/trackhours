@@ -351,6 +351,31 @@ function FreelancerDashboard() {
           )}
         </CardContent>
       </Card>
+
+      {/* Add Client Dialog */}
+      <Dialog open={addClientOpen} onOpenChange={setAddClientOpen}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Add Client</DialogTitle></DialogHeader>
+          <div className="space-y-2">
+            <Label>Client name</Label>
+            <Input value={newClientName} onChange={e => setNewClientName(e.target.value)} placeholder="e.g. Acme Corp" />
+          </div>
+          <DialogFooter><Button onClick={handleAddClient} disabled={!newClientName.trim()}>Add</Button></DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add Project Dialog */}
+      <Dialog open={addProjectOpen} onOpenChange={setAddProjectOpen}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Add Project</DialogTitle></DialogHeader>
+          <div className="space-y-2">
+            <Label>Project name</Label>
+            <Input value={newProjectName} onChange={e => setNewProjectName(e.target.value)} placeholder="e.g. Website Redesign" />
+            <p className="text-xs text-muted-foreground">Will be added to the currently selected client</p>
+          </div>
+          <DialogFooter><Button onClick={handleAddProject} disabled={!newProjectName.trim()}>Add</Button></DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
