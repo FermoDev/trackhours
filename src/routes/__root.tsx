@@ -24,8 +24,14 @@ export const Route = createRootRoute({
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "TimeTrack — Freelancer Time Tracking" },
-      { name: "description", content: "Simple, fast time tracking for freelancers. Track hours, manage projects, generate reports." },
+      { title: "TimeTrack —Track Hours & Manage Projects" },
+      { name: "description", content: "ack your work hours effortlessly. Manage projects, log time, and get clear reports — all in one place." },
+      { property: "og:title", content: "TimeTrack —Track Hours & Manage Projects" },
+      { name: "twitter:title", content: "TimeTrack —Track Hours & Manage Projects" },
+      { property: "og:description", content: "ack your work hours effortlessly. Manage projects, log time, and get clear reports — all in one place." },
+      { name: "twitter:description", content: "ack your work hours effortlessly. Manage projects, log time, and get clear reports — all in one place." },
+      { name: "twitter:card", content: "summary" },
+      { property: "og:type", content: "website" },
     ],
     links: [
       { rel: "stylesheet", href: appCss },
