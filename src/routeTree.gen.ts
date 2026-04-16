@@ -18,6 +18,14 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedWeeklyRouteImport } from './routes/_authenticated.weekly'
 import { Route as AuthenticatedTimesheetRouteImport } from './routes/_authenticated.timesheet'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated.dashboard'
+import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated.admin'
+import { Route as AuthenticatedAdminIndexRouteImport } from './routes/_authenticated.admin.index'
+import { Route as AuthenticatedAdminUsersRouteImport } from './routes/_authenticated.admin.users'
+import { Route as AuthenticatedAdminReportsRouteImport } from './routes/_authenticated.admin.reports'
+import { Route as AuthenticatedAdminProjectsRouteImport } from './routes/_authenticated.admin.projects'
+import { Route as AuthenticatedAdminEntriesRouteImport } from './routes/_authenticated.admin.entries'
+import { Route as AuthenticatedAdminClientsRouteImport } from './routes/_authenticated.admin.clients'
+import { Route as AuthenticatedAdminAssignmentsRouteImport } from './routes/_authenticated.admin.assignments'
 
 const SignupRoute = SignupRouteImport.update({
   id: '/signup',
@@ -63,6 +71,51 @@ const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
   path: '/dashboard',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedAdminRoute = AuthenticatedAdminRouteImport.update({
+  id: '/admin',
+  path: '/admin',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedAdminIndexRoute = AuthenticatedAdminIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AuthenticatedAdminRoute,
+} as any)
+const AuthenticatedAdminUsersRoute = AuthenticatedAdminUsersRouteImport.update({
+  id: '/users',
+  path: '/users',
+  getParentRoute: () => AuthenticatedAdminRoute,
+} as any)
+const AuthenticatedAdminReportsRoute =
+  AuthenticatedAdminReportsRouteImport.update({
+    id: '/reports',
+    path: '/reports',
+    getParentRoute: () => AuthenticatedAdminRoute,
+  } as any)
+const AuthenticatedAdminProjectsRoute =
+  AuthenticatedAdminProjectsRouteImport.update({
+    id: '/projects',
+    path: '/projects',
+    getParentRoute: () => AuthenticatedAdminRoute,
+  } as any)
+const AuthenticatedAdminEntriesRoute =
+  AuthenticatedAdminEntriesRouteImport.update({
+    id: '/entries',
+    path: '/entries',
+    getParentRoute: () => AuthenticatedAdminRoute,
+  } as any)
+const AuthenticatedAdminClientsRoute =
+  AuthenticatedAdminClientsRouteImport.update({
+    id: '/clients',
+    path: '/clients',
+    getParentRoute: () => AuthenticatedAdminRoute,
+  } as any)
+const AuthenticatedAdminAssignmentsRoute =
+  AuthenticatedAdminAssignmentsRouteImport.update({
+    id: '/assignments',
+    path: '/assignments',
+    getParentRoute: () => AuthenticatedAdminRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -70,9 +123,17 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/reset-password': typeof ResetPasswordRoute
   '/signup': typeof SignupRoute
+  '/admin': typeof AuthenticatedAdminRouteWithChildren
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/timesheet': typeof AuthenticatedTimesheetRoute
   '/weekly': typeof AuthenticatedWeeklyRoute
+  '/admin/assignments': typeof AuthenticatedAdminAssignmentsRoute
+  '/admin/clients': typeof AuthenticatedAdminClientsRoute
+  '/admin/entries': typeof AuthenticatedAdminEntriesRoute
+  '/admin/projects': typeof AuthenticatedAdminProjectsRoute
+  '/admin/reports': typeof AuthenticatedAdminReportsRoute
+  '/admin/users': typeof AuthenticatedAdminUsersRoute
+  '/admin/': typeof AuthenticatedAdminIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -83,6 +144,13 @@ export interface FileRoutesByTo {
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/timesheet': typeof AuthenticatedTimesheetRoute
   '/weekly': typeof AuthenticatedWeeklyRoute
+  '/admin/assignments': typeof AuthenticatedAdminAssignmentsRoute
+  '/admin/clients': typeof AuthenticatedAdminClientsRoute
+  '/admin/entries': typeof AuthenticatedAdminEntriesRoute
+  '/admin/projects': typeof AuthenticatedAdminProjectsRoute
+  '/admin/reports': typeof AuthenticatedAdminReportsRoute
+  '/admin/users': typeof AuthenticatedAdminUsersRoute
+  '/admin': typeof AuthenticatedAdminIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -92,9 +160,17 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/reset-password': typeof ResetPasswordRoute
   '/signup': typeof SignupRoute
+  '/_authenticated/admin': typeof AuthenticatedAdminRouteWithChildren
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/timesheet': typeof AuthenticatedTimesheetRoute
   '/_authenticated/weekly': typeof AuthenticatedWeeklyRoute
+  '/_authenticated/admin/assignments': typeof AuthenticatedAdminAssignmentsRoute
+  '/_authenticated/admin/clients': typeof AuthenticatedAdminClientsRoute
+  '/_authenticated/admin/entries': typeof AuthenticatedAdminEntriesRoute
+  '/_authenticated/admin/projects': typeof AuthenticatedAdminProjectsRoute
+  '/_authenticated/admin/reports': typeof AuthenticatedAdminReportsRoute
+  '/_authenticated/admin/users': typeof AuthenticatedAdminUsersRoute
+  '/_authenticated/admin/': typeof AuthenticatedAdminIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -104,9 +180,17 @@ export interface FileRouteTypes {
     | '/login'
     | '/reset-password'
     | '/signup'
+    | '/admin'
     | '/dashboard'
     | '/timesheet'
     | '/weekly'
+    | '/admin/assignments'
+    | '/admin/clients'
+    | '/admin/entries'
+    | '/admin/projects'
+    | '/admin/reports'
+    | '/admin/users'
+    | '/admin/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -117,6 +201,13 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/timesheet'
     | '/weekly'
+    | '/admin/assignments'
+    | '/admin/clients'
+    | '/admin/entries'
+    | '/admin/projects'
+    | '/admin/reports'
+    | '/admin/users'
+    | '/admin'
   id:
     | '__root__'
     | '/'
@@ -125,9 +216,17 @@ export interface FileRouteTypes {
     | '/login'
     | '/reset-password'
     | '/signup'
+    | '/_authenticated/admin'
     | '/_authenticated/dashboard'
     | '/_authenticated/timesheet'
     | '/_authenticated/weekly'
+    | '/_authenticated/admin/assignments'
+    | '/_authenticated/admin/clients'
+    | '/_authenticated/admin/entries'
+    | '/_authenticated/admin/projects'
+    | '/_authenticated/admin/reports'
+    | '/_authenticated/admin/users'
+    | '/_authenticated/admin/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -204,16 +303,97 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedDashboardRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/admin': {
+      id: '/_authenticated/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AuthenticatedAdminRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/admin/': {
+      id: '/_authenticated/admin/'
+      path: '/'
+      fullPath: '/admin/'
+      preLoaderRoute: typeof AuthenticatedAdminIndexRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
+    '/_authenticated/admin/users': {
+      id: '/_authenticated/admin/users'
+      path: '/users'
+      fullPath: '/admin/users'
+      preLoaderRoute: typeof AuthenticatedAdminUsersRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
+    '/_authenticated/admin/reports': {
+      id: '/_authenticated/admin/reports'
+      path: '/reports'
+      fullPath: '/admin/reports'
+      preLoaderRoute: typeof AuthenticatedAdminReportsRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
+    '/_authenticated/admin/projects': {
+      id: '/_authenticated/admin/projects'
+      path: '/projects'
+      fullPath: '/admin/projects'
+      preLoaderRoute: typeof AuthenticatedAdminProjectsRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
+    '/_authenticated/admin/entries': {
+      id: '/_authenticated/admin/entries'
+      path: '/entries'
+      fullPath: '/admin/entries'
+      preLoaderRoute: typeof AuthenticatedAdminEntriesRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
+    '/_authenticated/admin/clients': {
+      id: '/_authenticated/admin/clients'
+      path: '/clients'
+      fullPath: '/admin/clients'
+      preLoaderRoute: typeof AuthenticatedAdminClientsRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
+    '/_authenticated/admin/assignments': {
+      id: '/_authenticated/admin/assignments'
+      path: '/assignments'
+      fullPath: '/admin/assignments'
+      preLoaderRoute: typeof AuthenticatedAdminAssignmentsRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
   }
 }
 
+interface AuthenticatedAdminRouteChildren {
+  AuthenticatedAdminAssignmentsRoute: typeof AuthenticatedAdminAssignmentsRoute
+  AuthenticatedAdminClientsRoute: typeof AuthenticatedAdminClientsRoute
+  AuthenticatedAdminEntriesRoute: typeof AuthenticatedAdminEntriesRoute
+  AuthenticatedAdminProjectsRoute: typeof AuthenticatedAdminProjectsRoute
+  AuthenticatedAdminReportsRoute: typeof AuthenticatedAdminReportsRoute
+  AuthenticatedAdminUsersRoute: typeof AuthenticatedAdminUsersRoute
+  AuthenticatedAdminIndexRoute: typeof AuthenticatedAdminIndexRoute
+}
+
+const AuthenticatedAdminRouteChildren: AuthenticatedAdminRouteChildren = {
+  AuthenticatedAdminAssignmentsRoute: AuthenticatedAdminAssignmentsRoute,
+  AuthenticatedAdminClientsRoute: AuthenticatedAdminClientsRoute,
+  AuthenticatedAdminEntriesRoute: AuthenticatedAdminEntriesRoute,
+  AuthenticatedAdminProjectsRoute: AuthenticatedAdminProjectsRoute,
+  AuthenticatedAdminReportsRoute: AuthenticatedAdminReportsRoute,
+  AuthenticatedAdminUsersRoute: AuthenticatedAdminUsersRoute,
+  AuthenticatedAdminIndexRoute: AuthenticatedAdminIndexRoute,
+}
+
+const AuthenticatedAdminRouteWithChildren =
+  AuthenticatedAdminRoute._addFileChildren(AuthenticatedAdminRouteChildren)
+
 interface AuthenticatedRouteChildren {
+  AuthenticatedAdminRoute: typeof AuthenticatedAdminRouteWithChildren
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedTimesheetRoute: typeof AuthenticatedTimesheetRoute
   AuthenticatedWeeklyRoute: typeof AuthenticatedWeeklyRoute
 }
 
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
+  AuthenticatedAdminRoute: AuthenticatedAdminRouteWithChildren,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedTimesheetRoute: AuthenticatedTimesheetRoute,
   AuthenticatedWeeklyRoute: AuthenticatedWeeklyRoute,
