@@ -30,13 +30,12 @@ function SettingsPage() {
   const handleSave = async () => {
     if (!user) return;
     setSaving(true);
-    const updates: Record<string, unknown> = { full_name: fullName };
-    if (hourlyRate) updates.hourly_rate = parseFloat(hourlyRate);
-    else updates.hourly_rate = null;
-
     const { error } = await supabase
       .from("profiles")
-      .update(updates)
+      .update({
+        full_name: fullName,
+        hourly_rate: hourlyRate ? parseFloat(hourlyRate) : null,
+      })
       .eq("user_id", user.id);
 
     setSaving(false);
