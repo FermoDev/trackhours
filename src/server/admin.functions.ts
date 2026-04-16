@@ -1,19 +1,28 @@
 import { createServerFn } from "@tanstack/react-start";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 export const adminResetPassword = createServerFn({ method: "POST" })
-  .inputValidator((data: { userId: string; email: string }) => data)
-  .handler(async ({ data }) => {
-    // Verify caller is admin via service role lookup
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: { email: string }) => data)
+  .handler(async ({ data, context }) => {
+    // Verify caller is admin
     const { data: roleData } = await supabaseAdmin
       .from("user_roles")
       .select("role")
-      .eq("user_id", data.userId)
+      .eq("user_id", context.userId)
       .single();
 
-    // Send password reset email
+    if (roleData?.role !== "admin") {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    const siteUrl = process.env.SUPABASE_URL
+      ? `https://${process.env.SUPABASE_URL.split("//")[1]?.replace(".supabase.co", "")}.lovable.app`
+      : "";
+
     const { error } = await supabaseAdmin.auth.resetPasswordForEmail(data.email, {
-      redirectTo: `${process.env.SUPABASE_URL ? process.env.SUPABASE_URL.replace('.supabase.co', '.lovable.app') : ''}/reset-password`,
+      redirectTo: `${siteUrl}/reset-password`,
     });
 
     if (error) {
