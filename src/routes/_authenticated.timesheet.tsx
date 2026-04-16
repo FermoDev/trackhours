@@ -1,14 +1,15 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useAuth } from "@/lib/auth";
 import { supabase } from "@/integrations/supabase/client";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { formatDuration } from "@/lib/format";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Search, Send, Filter } from "lucide-react";
+import { Send, Clock, FileText, CheckCircle } from "lucide-react";
 import type { Tables } from "@/integrations/supabase/types";
 
 export const Route = createFileRoute("/_authenticated/timesheet")({
@@ -51,6 +52,15 @@ function TimesheetPage() {
 
   useEffect(() => { fetchEntries(); }, [fetchEntries]);
 
+  const draftEntries = useMemo(() => entries.filter(e => e.status === "draft"), [entries]);
+  const selectAllDrafts = () => {
+    if (selected.size === draftEntries.length && draftEntries.length > 0) {
+      setSelected(new Set());
+    } else {
+      setSelected(new Set(draftEntries.map(e => e.id)));
+    }
+  };
+
   const toggleSelect = (id: string) => {
     const next = new Set(selected);
     next.has(id) ? next.delete(id) : next.add(id);
@@ -66,6 +76,19 @@ function TimesheetPage() {
   };
 
   const totalMinutes = entries.reduce((s, e) => s + (e.duration_minutes || 0), 0);
+  const draftCount = draftEntries.length;
+  const submittedCount = entries.filter(e => e.status === "submitted").length;
+  const approvedCount = entries.filter(e => e.status === "approved").length;
+
+  const resetFilters = () => {
+    setFilterClient("all");
+    setFilterProject("all");
+    setFilterStatus("all");
+    setFilterDateFrom("");
+    setFilterDateTo("");
+  };
+
+  const hasFilters = filterClient !== "all" || filterProject !== "all" || filterStatus !== "all" || filterDateFrom || filterDateTo;
 
   return (
     <div className="space-y-6">
@@ -78,10 +101,38 @@ function TimesheetPage() {
         )}
       </div>
 
+      {/* Summary cards */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <Card>
+          <CardContent className="pt-4 pb-3">
+            <div className="flex items-center gap-2 text-muted-foreground mb-1"><Clock className="h-3.5 w-3.5" /><span className="text-xs">Total</span></div>
+            <p className="text-lg font-bold font-mono">{formatDuration(totalMinutes)}</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-4 pb-3">
+            <div className="flex items-center gap-2 text-muted-foreground mb-1"><FileText className="h-3.5 w-3.5" /><span className="text-xs">Drafts</span></div>
+            <p className="text-lg font-bold">{draftCount}</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-4 pb-3">
+            <div className="flex items-center gap-2 text-primary mb-1"><Send className="h-3.5 w-3.5" /><span className="text-xs">Submitted</span></div>
+            <p className="text-lg font-bold">{submittedCount}</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-4 pb-3">
+            <div className="flex items-center gap-2 text-success mb-1"><CheckCircle className="h-3.5 w-3.5" /><span className="text-xs">Approved</span></div>
+            <p className="text-lg font-bold">{approvedCount}</p>
+          </CardContent>
+        </Card>
+      </div>
+
       {/* Filters */}
       <Card>
-        <CardContent className="pt-6">
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+        <CardContent className="pt-5 pb-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
             <Select value={filterClient} onValueChange={setFilterClient}>
               <SelectTrigger><SelectValue placeholder="All clients" /></SelectTrigger>
               <SelectContent>
@@ -105,17 +156,14 @@ function TimesheetPage() {
                 <SelectItem value="approved">Approved</SelectItem>
               </SelectContent>
             </Select>
-            <Input type="date" value={filterDateFrom} onChange={(e) => setFilterDateFrom(e.target.value)} placeholder="From" />
-            <Input type="date" value={filterDateTo} onChange={(e) => setFilterDateTo(e.target.value)} placeholder="To" />
+            <Input type="date" value={filterDateFrom} onChange={(e) => setFilterDateFrom(e.target.value)} />
+            <Input type="date" value={filterDateTo} onChange={(e) => setFilterDateTo(e.target.value)} />
+            {hasFilters && (
+              <Button variant="ghost" size="sm" onClick={resetFilters} className="text-xs">Clear filters</Button>
+            )}
           </div>
         </CardContent>
       </Card>
-
-      {/* Summary */}
-      <div className="flex gap-4 text-sm">
-        <span className="text-muted-foreground">{entries.length} entries</span>
-        <span className="font-medium">Total: {formatDuration(totalMinutes)}</span>
-      </div>
 
       {/* Table */}
       <Card>
@@ -123,12 +171,19 @@ function TimesheetPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="w-10"></TableHead>
+                <TableHead className="w-10">
+                  {draftEntries.length > 0 && (
+                    <Checkbox
+                      checked={selected.size === draftEntries.length && draftEntries.length > 0}
+                      onCheckedChange={selectAllDrafts}
+                    />
+                  )}
+                </TableHead>
                 <TableHead>Date</TableHead>
                 <TableHead>Client</TableHead>
                 <TableHead>Project</TableHead>
                 <TableHead>Duration</TableHead>
-                <TableHead>Description</TableHead>
+                <TableHead className="hidden sm:table-cell">Description</TableHead>
                 <TableHead>Status</TableHead>
               </TableRow>
             </TableHeader>
@@ -136,19 +191,22 @@ function TimesheetPage() {
               {entries.length === 0 ? (
                 <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-8">No entries found</TableCell></TableRow>
               ) : entries.map((entry) => (
-                <TableRow key={entry.id}>
+                <TableRow key={entry.id} className="hover:bg-muted/30">
                   <TableCell>
                     {entry.status === "draft" && (
-                      <input type="checkbox" checked={selected.has(entry.id)} onChange={() => toggleSelect(entry.id)} className="rounded" />
+                      <Checkbox
+                        checked={selected.has(entry.id)}
+                        onCheckedChange={() => toggleSelect(entry.id)}
+                      />
                     )}
                   </TableCell>
-                  <TableCell className="whitespace-nowrap">{entry.entry_date}</TableCell>
-                  <TableCell>{entry.clients?.name || "—"}</TableCell>
-                  <TableCell>{entry.projects?.name || "—"}</TableCell>
-                  <TableCell className="font-mono">{entry.duration_minutes ? formatDuration(entry.duration_minutes) : "—"}</TableCell>
-                  <TableCell className="max-w-[200px] truncate">{entry.description || "—"}</TableCell>
+                  <TableCell className="whitespace-nowrap text-sm">{entry.entry_date}</TableCell>
+                  <TableCell className="text-sm">{entry.clients?.name || "—"}</TableCell>
+                  <TableCell className="text-sm font-medium">{entry.projects?.name || "—"}</TableCell>
+                  <TableCell className="font-mono text-sm">{entry.duration_minutes ? formatDuration(entry.duration_minutes) : "—"}</TableCell>
+                  <TableCell className="max-w-[200px] truncate text-sm text-muted-foreground hidden sm:table-cell">{entry.description || "—"}</TableCell>
                   <TableCell>
-                    <span className={`text-xs px-2 py-0.5 rounded-full ${entry.status === "approved" ? "bg-success/10 text-success" : entry.status === "submitted" ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"}`}>{entry.status}</span>
+                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${entry.status === "approved" ? "bg-success/10 text-success" : entry.status === "submitted" ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"}`}>{entry.status}</span>
                   </TableCell>
                 </TableRow>
               ))}
