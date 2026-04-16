@@ -286,20 +286,26 @@ function FreelancerDashboard() {
           </CardHeader>
           <CardContent className="space-y-3">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <Select value={selectedClient} onValueChange={(v) => { setSelectedClient(v); setSelectedProject(""); }}>
-                <SelectTrigger><SelectValue placeholder="Select client" /></SelectTrigger>
-                <SelectContent>
-                  {clients.length === 0 && <p className="text-xs text-muted-foreground px-3 py-2">No clients yet</p>}
-                  {clients.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
-                </SelectContent>
-              </Select>
-              <Select value={selectedProject} onValueChange={setSelectedProject}>
-                <SelectTrigger><SelectValue placeholder="Select project" /></SelectTrigger>
-                <SelectContent>
-                  {filteredProjects.length === 0 && <p className="text-xs text-muted-foreground px-3 py-2">No projects available</p>}
-                  {filteredProjects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
-                </SelectContent>
-              </Select>
+              <div className="flex gap-1.5">
+                <Select value={selectedClient} onValueChange={(v) => { setSelectedClient(v); setSelectedProject(""); }}>
+                  <SelectTrigger><SelectValue placeholder="Select client" /></SelectTrigger>
+                  <SelectContent>
+                    {clients.length === 0 && <p className="text-xs text-muted-foreground px-3 py-2">No clients yet</p>}
+                    {clients.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+                <Button variant="outline" size="icon" className="shrink-0" onClick={() => setAddClientOpen(true)} title="Add client"><Plus className="h-3.5 w-3.5" /></Button>
+              </div>
+              <div className="flex gap-1.5">
+                <Select value={selectedProject} onValueChange={setSelectedProject}>
+                  <SelectTrigger><SelectValue placeholder="Select project" /></SelectTrigger>
+                  <SelectContent>
+                    {filteredProjects.length === 0 && <p className="text-xs text-muted-foreground px-3 py-2">{selectedClient ? "No projects for this client" : "Select a client first"}</p>}
+                    {filteredProjects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+                <Button variant="outline" size="icon" className="shrink-0" onClick={() => setAddProjectOpen(true)} disabled={!selectedClient} title="Add project"><Plus className="h-3.5 w-3.5" /></Button>
+              </div>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <Input type="number" placeholder="Minutes" value={manualDuration} onChange={(e) => setManualDuration(e.target.value)} />
