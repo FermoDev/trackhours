@@ -5,8 +5,13 @@ import type { Tables } from "@/integrations/supabase/types";
 
 type TimeEntry = Tables<"time_entries">;
 
+export type ActiveTimerEntry = TimeEntry & {
+  clientName?: string;
+  projectName?: string;
+};
+
 interface TimerContextValue {
-  activeEntry: TimeEntry | null;
+  activeEntry: ActiveTimerEntry | null;
   elapsed: number;
   isLoading: boolean;
   startTimer: (clientId: string, projectId: string, description?: string) => Promise<void>;
@@ -18,7 +23,7 @@ const TimerContext = createContext<TimerContextValue | null>(null);
 
 export function TimerProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
-  const [activeEntry, setActiveEntry] = useState<TimeEntry | null>(null);
+  const [activeEntry, setActiveEntry] = useState<ActiveTimerEntry | null>(null);
   const [elapsed, setElapsed] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -26,14 +31,23 @@ export function TimerProvider({ children }: { children: ReactNode }) {
     if (!user) { setActiveEntry(null); return; }
     const { data } = await supabase
       .from("time_entries")
-      .select("*")
+      .select("*, clients(name), projects(name)")
       .eq("user_id", user.id)
       .eq("entry_mode", "timer")
       .is("end_time", null)
       .order("start_time", { ascending: false })
       .limit(1)
       .maybeSingle();
-    setActiveEntry(data);
+    if (data) {
+      const d = data as any;
+      setActiveEntry({
+        ...d,
+        clientName: d.clients?.name || undefined,
+        projectName: d.projects?.name || undefined,
+      });
+    } else {
+      setActiveEntry(null);
+    }
   }, [user]);
 
   useEffect(() => { refreshTimer(); }, [refreshTimer]);
@@ -46,7 +60,6 @@ export function TimerProvider({ children }: { children: ReactNode }) {
     return () => clearInterval(id);
   }, [activeEntry]);
 
-  // Before-unload warning
   useEffect(() => {
     if (!activeEntry) return;
     const handler = (e: BeforeUnloadEvent) => { e.preventDefault(); };
@@ -71,9 +84,16 @@ export function TimerProvider({ children }: { children: ReactNode }) {
         status: "draft" as const,
         description: description || null,
       })
-      .select()
+      .select("*, clients(name), projects(name)")
       .single();
-    if (data) setActiveEntry(data);
+    if (data) {
+      const d = data as any;
+      setActiveEntry({
+        ...d,
+        clientName: d.clients?.name || undefined,
+        projectName: d.projects?.name || undefined,
+      });
+    }
     setIsLoading(false);
   };
 
