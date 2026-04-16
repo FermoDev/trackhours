@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useState, type FormEvent } from "react";
+import { useState, useEffect, type FormEvent } from "react";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,10 +19,11 @@ function LoginPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  if (isAuthenticated) {
-    navigate({ to: role === "admin" ? "/admin" : "/dashboard" });
-    return null;
-  }
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate({ to: role === "admin" ? "/admin" : "/dashboard" });
+    }
+  }, [isAuthenticated, role, navigate]);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
