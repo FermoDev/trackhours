@@ -6,9 +6,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Plus } from "lucide-react";
+import { Plus, Trash2 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
+import { toast } from "sonner";
 import type { Tables } from "@/integrations/supabase/types";
 
 export const Route = createFileRoute("/_authenticated/admin/clients")({
@@ -18,6 +20,7 @@ export const Route = createFileRoute("/_authenticated/admin/clients")({
 function AdminClientsPage() {
   const [clients, setClients] = useState<Tables<"clients">[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<Tables<"clients"> | null>(null);
   const [name, setName] = useState("");
   const [code, setCode] = useState("");
 
@@ -37,6 +40,15 @@ function AdminClientsPage() {
 
   const toggleStatus = async (client: Tables<"clients">) => {
     await supabase.from("clients").update({ status: client.status === "active" ? "inactive" as const : "active" as const }).eq("id", client.id);
+    fetchClients();
+  };
+
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    const { error } = await supabase.from("clients").delete().eq("id", deleteTarget.id);
+    if (error) { toast.error("Cannot delete — client may have linked projects or entries"); }
+    else { toast.success("Client deleted"); }
+    setDeleteTarget(null);
     fetchClients();
   };
 
@@ -65,7 +77,12 @@ function AdminClientsPage() {
                   <TableCell>{c.code || "—"}</TableCell>
                   <TableCell><Badge variant={c.status === "active" ? "default" : "secondary"}>{c.status}</Badge></TableCell>
                   <TableCell className="text-muted-foreground text-sm">{c.created_at.slice(0, 10)}</TableCell>
-                  <TableCell><Button variant="ghost" size="sm" onClick={() => toggleStatus(c)}>{c.status === "active" ? "Archive" : "Activate"}</Button></TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex items-center justify-end gap-1">
+                      <Button variant="ghost" size="sm" onClick={() => toggleStatus(c)}>{c.status === "active" ? "Archive" : "Activate"}</Button>
+                      <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => setDeleteTarget(c)}><Trash2 className="h-3.5 w-3.5" /></Button>
+                    </div>
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>
@@ -82,6 +99,18 @@ function AdminClientsPage() {
           <DialogFooter><Button onClick={handleAdd} disabled={!name}>Add</Button></DialogFooter>
         </DialogContent>
       </Dialog>
+      <AlertDialog open={!!deleteTarget} onOpenChange={(o) => { if (!o) setDeleteTarget(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete "{deleteTarget?.name}"?</AlertDialogTitle>
+            <AlertDialogDescription>This will permanently remove this client. This cannot be undone. If the client has linked projects or time entries, deletion will fail.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Delete</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

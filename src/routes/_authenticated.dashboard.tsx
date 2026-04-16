@@ -9,7 +9,10 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
 import { Play, Square, Clock, Plus, RotateCcw, Zap } from "lucide-react";
+import { toast } from "sonner";
 import type { Tables } from "@/integrations/supabase/types";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
@@ -30,6 +33,10 @@ function FreelancerDashboard() {
   const [manualDuration, setManualDuration] = useState("");
   const [manualDesc, setManualDesc] = useState("");
   const [showFullStart, setShowFullStart] = useState(false);
+  const [addClientOpen, setAddClientOpen] = useState(false);
+  const [addProjectOpen, setAddProjectOpen] = useState(false);
+  const [newClientName, setNewClientName] = useState("");
+  const [newProjectName, setNewProjectName] = useState("");
 
   const TARGET_DAY = 480; // 8h
   const TARGET_WEEK = 2400; // 40h
@@ -115,6 +122,28 @@ function FreelancerDashboard() {
 
   const handleQuickStart = async (clientId: string, projectId: string) => {
     await startTimer(clientId, projectId);
+  };
+
+  const handleAddClient = async () => {
+    if (!newClientName.trim()) return;
+    const { data, error } = await supabase.from("clients").insert({ name: newClientName.trim() }).select().single();
+    if (error) { toast.error("Failed to add client"); return; }
+    setNewClientName("");
+    setAddClientOpen(false);
+    toast.success("Client added");
+    fetchData();
+    if (data) setSelectedClient(data.id);
+  };
+
+  const handleAddProject = async () => {
+    if (!newProjectName.trim() || !selectedClient) return;
+    const { data, error } = await supabase.from("projects").insert({ name: newProjectName.trim(), client_id: selectedClient }).select().single();
+    if (error) { toast.error("Failed to add project"); return; }
+    setNewProjectName("");
+    setAddProjectOpen(false);
+    toast.success("Project added");
+    fetchData();
+    if (data) setSelectedProject(data.id);
   };
 
   const todayPct = Math.min(100, (todayMinutes / TARGET_DAY) * 100);
@@ -221,20 +250,26 @@ function FreelancerDashboard() {
           </CardHeader>
           <CardContent className="space-y-3">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <Select value={selectedClient} onValueChange={(v) => { setSelectedClient(v); setSelectedProject(""); }}>
-                <SelectTrigger><SelectValue placeholder="Select client" /></SelectTrigger>
-                <SelectContent>
-                  {clients.length === 0 && <p className="text-xs text-muted-foreground px-3 py-2">No clients yet</p>}
-                  {clients.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
-                </SelectContent>
-              </Select>
-              <Select value={selectedProject} onValueChange={setSelectedProject}>
-                <SelectTrigger><SelectValue placeholder="Select project" /></SelectTrigger>
-                <SelectContent>
-                  {filteredProjects.length === 0 && <p className="text-xs text-muted-foreground px-3 py-2">No projects available</p>}
-                  {filteredProjects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
-                </SelectContent>
-              </Select>
+              <div className="flex gap-1.5">
+                <Select value={selectedClient} onValueChange={(v) => { setSelectedClient(v); setSelectedProject(""); }}>
+                  <SelectTrigger><SelectValue placeholder="Select client" /></SelectTrigger>
+                  <SelectContent>
+                    {clients.length === 0 && <p className="text-xs text-muted-foreground px-3 py-2">No clients yet</p>}
+                    {clients.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+                <Button variant="outline" size="icon" className="shrink-0" onClick={() => setAddClientOpen(true)} title="Add client"><Plus className="h-3.5 w-3.5" /></Button>
+              </div>
+              <div className="flex gap-1.5">
+                <Select value={selectedProject} onValueChange={setSelectedProject}>
+                  <SelectTrigger><SelectValue placeholder="Select project" /></SelectTrigger>
+                  <SelectContent>
+                    {filteredProjects.length === 0 && <p className="text-xs text-muted-foreground px-3 py-2">{selectedClient ? "No projects for this client" : "Select a client first"}</p>}
+                    {filteredProjects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+                <Button variant="outline" size="icon" className="shrink-0" onClick={() => setAddProjectOpen(true)} disabled={!selectedClient} title="Add project"><Plus className="h-3.5 w-3.5" /></Button>
+              </div>
             </div>
             <Button onClick={handleStart} disabled={!selectedClient || !selectedProject || timerLoading} className="rounded-xl">
               <Play className="h-4 w-4 mr-2" /> Start Timer
@@ -251,20 +286,26 @@ function FreelancerDashboard() {
           </CardHeader>
           <CardContent className="space-y-3">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <Select value={selectedClient} onValueChange={(v) => { setSelectedClient(v); setSelectedProject(""); }}>
-                <SelectTrigger><SelectValue placeholder="Select client" /></SelectTrigger>
-                <SelectContent>
-                  {clients.length === 0 && <p className="text-xs text-muted-foreground px-3 py-2">No clients yet</p>}
-                  {clients.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
-                </SelectContent>
-              </Select>
-              <Select value={selectedProject} onValueChange={setSelectedProject}>
-                <SelectTrigger><SelectValue placeholder="Select project" /></SelectTrigger>
-                <SelectContent>
-                  {filteredProjects.length === 0 && <p className="text-xs text-muted-foreground px-3 py-2">No projects available</p>}
-                  {filteredProjects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
-                </SelectContent>
-              </Select>
+              <div className="flex gap-1.5">
+                <Select value={selectedClient} onValueChange={(v) => { setSelectedClient(v); setSelectedProject(""); }}>
+                  <SelectTrigger><SelectValue placeholder="Select client" /></SelectTrigger>
+                  <SelectContent>
+                    {clients.length === 0 && <p className="text-xs text-muted-foreground px-3 py-2">No clients yet</p>}
+                    {clients.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+                <Button variant="outline" size="icon" className="shrink-0" onClick={() => setAddClientOpen(true)} title="Add client"><Plus className="h-3.5 w-3.5" /></Button>
+              </div>
+              <div className="flex gap-1.5">
+                <Select value={selectedProject} onValueChange={setSelectedProject}>
+                  <SelectTrigger><SelectValue placeholder="Select project" /></SelectTrigger>
+                  <SelectContent>
+                    {filteredProjects.length === 0 && <p className="text-xs text-muted-foreground px-3 py-2">{selectedClient ? "No projects for this client" : "Select a client first"}</p>}
+                    {filteredProjects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+                <Button variant="outline" size="icon" className="shrink-0" onClick={() => setAddProjectOpen(true)} disabled={!selectedClient} title="Add project"><Plus className="h-3.5 w-3.5" /></Button>
+              </div>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <Input type="number" placeholder="Minutes" value={manualDuration} onChange={(e) => setManualDuration(e.target.value)} />
@@ -310,6 +351,31 @@ function FreelancerDashboard() {
           )}
         </CardContent>
       </Card>
+
+      {/* Add Client Dialog */}
+      <Dialog open={addClientOpen} onOpenChange={setAddClientOpen}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Add Client</DialogTitle></DialogHeader>
+          <div className="space-y-2">
+            <Label>Client name</Label>
+            <Input value={newClientName} onChange={e => setNewClientName(e.target.value)} placeholder="e.g. Acme Corp" />
+          </div>
+          <DialogFooter><Button onClick={handleAddClient} disabled={!newClientName.trim()}>Add</Button></DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add Project Dialog */}
+      <Dialog open={addProjectOpen} onOpenChange={setAddProjectOpen}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Add Project</DialogTitle></DialogHeader>
+          <div className="space-y-2">
+            <Label>Project name</Label>
+            <Input value={newProjectName} onChange={e => setNewProjectName(e.target.value)} placeholder="e.g. Website Redesign" />
+            <p className="text-xs text-muted-foreground">Will be added to the currently selected client</p>
+          </div>
+          <DialogFooter><Button onClick={handleAddProject} disabled={!newProjectName.trim()}>Add</Button></DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
