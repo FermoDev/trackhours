@@ -33,6 +33,10 @@ function FreelancerDashboard() {
   const [manualDuration, setManualDuration] = useState("");
   const [manualDesc, setManualDesc] = useState("");
   const [showFullStart, setShowFullStart] = useState(false);
+  const [addClientOpen, setAddClientOpen] = useState(false);
+  const [addProjectOpen, setAddProjectOpen] = useState(false);
+  const [newClientName, setNewClientName] = useState("");
+  const [newProjectName, setNewProjectName] = useState("");
 
   const TARGET_DAY = 480; // 8h
   const TARGET_WEEK = 2400; // 40h
