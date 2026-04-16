@@ -230,7 +230,10 @@ function FreelancerDashboard() {
               </Select>
               <Select value={selectedProject} onValueChange={setSelectedProject}>
                 <SelectTrigger><SelectValue placeholder="Select project" /></SelectTrigger>
-                <SelectContent>{filteredProjects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent>
+                <SelectContent>
+                  {filteredProjects.length === 0 && <p className="text-xs text-muted-foreground px-3 py-2">No projects available</p>}
+                  {filteredProjects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                </SelectContent>
               </Select>
             </div>
             <Button onClick={handleStart} disabled={!selectedClient || !selectedProject || timerLoading} className="rounded-xl">
