@@ -2,7 +2,7 @@ import { Link, useLocation } from "@tanstack/react-router";
 import { useAuth } from "@/lib/auth";
 import {
   Clock, LayoutDashboard, CalendarDays, FileText, Users, Building2,
-  FolderKanban, LinkIcon, BarChart3, LogOut, ChevronLeft, ChevronRight, Menu, X
+  FolderKanban, LinkIcon, BarChart3, LogOut, ChevronLeft, ChevronRight, Menu, X, Settings
 } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -11,6 +11,7 @@ const freelancerNav = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { to: "/timesheet", label: "Timesheet", icon: FileText },
   { to: "/weekly", label: "Weekly View", icon: CalendarDays },
+  { to: "/settings", label: "Settings", icon: Settings },
 ];
 
 const adminNav = [
