@@ -20,6 +20,7 @@ export const Route = createFileRoute("/_authenticated/admin/clients")({
 function AdminClientsPage() {
   const [clients, setClients] = useState<Tables<"clients">[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<Tables<"clients"> | null>(null);
   const [name, setName] = useState("");
   const [code, setCode] = useState("");
 
