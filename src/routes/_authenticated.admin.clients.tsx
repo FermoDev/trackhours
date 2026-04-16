@@ -43,6 +43,15 @@ function AdminClientsPage() {
     fetchClients();
   };
 
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    const { error } = await supabase.from("clients").delete().eq("id", deleteTarget.id);
+    if (error) { toast.error("Cannot delete — client may have linked projects or entries"); }
+    else { toast.success("Client deleted"); }
+    setDeleteTarget(null);
+    fetchClients();
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -68,7 +77,12 @@ function AdminClientsPage() {
                   <TableCell>{c.code || "—"}</TableCell>
                   <TableCell><Badge variant={c.status === "active" ? "default" : "secondary"}>{c.status}</Badge></TableCell>
                   <TableCell className="text-muted-foreground text-sm">{c.created_at.slice(0, 10)}</TableCell>
-                  <TableCell><Button variant="ghost" size="sm" onClick={() => toggleStatus(c)}>{c.status === "active" ? "Archive" : "Activate"}</Button></TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex items-center justify-end gap-1">
+                      <Button variant="ghost" size="sm" onClick={() => toggleStatus(c)}>{c.status === "active" ? "Archive" : "Activate"}</Button>
+                      <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => setDeleteTarget(c)}><Trash2 className="h-3.5 w-3.5" /></Button>
+                    </div>
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>
@@ -85,6 +99,18 @@ function AdminClientsPage() {
           <DialogFooter><Button onClick={handleAdd} disabled={!name}>Add</Button></DialogFooter>
         </DialogContent>
       </Dialog>
+      <AlertDialog open={!!deleteTarget} onOpenChange={(o) => { if (!o) setDeleteTarget(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete "{deleteTarget?.name}"?</AlertDialogTitle>
+            <AlertDialogDescription>This will permanently remove this client. This cannot be undone. If the client has linked projects or time entries, deletion will fail.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Delete</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
