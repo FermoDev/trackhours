@@ -214,7 +214,7 @@ function FreelancerDashboard() {
               <Zap className="h-3.5 w-3.5 mr-1.5" /> New project timer
             </Button>
             <Button variant="outline" size="sm" className="rounded-xl" onClick={() => { setShowManual(true); setShowFullStart(false); }}>
-              <Plus className="h-3.5 w-3.5 mr-1.5" /> Forgot to track?
+              <Plus className="h-3.5 w-3.5 mr-1.5" /> Manual entry
             </Button>
           </div>
         </div>

@@ -11,6 +11,9 @@ const freelancerNav = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { to: "/timesheet", label: "Timesheet", icon: FileText },
   { to: "/weekly", label: "Weekly View", icon: CalendarDays },
+];
+
+const settingsNav = [
   { to: "/settings", label: "Settings", icon: Settings },
 ];
 
@@ -31,7 +34,7 @@ export function AppSidebar() {
   const [mobileOpen, setMobileOpen] = useState(false);
 
   const isAdmin = role === "admin";
-  const navItems = isAdmin ? [...freelancerNav, ...adminNav] : freelancerNav;
+  const navItems = isAdmin ? [...freelancerNav, ...adminNav, ...settingsNav] : [...freelancerNav, ...settingsNav];
 
   const sidebar = (
     <div className={`flex flex-col h-full bg-sidebar border-r border-sidebar-border transition-all duration-200 ${collapsed ? "w-16" : "w-60"}`}>
