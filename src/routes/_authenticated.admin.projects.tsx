@@ -8,7 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus } from "lucide-react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import type { Tables } from "@/integrations/supabase/types";
@@ -123,7 +123,10 @@ function AdminProjectsPage() {
       </Card>
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent>
-          <DialogHeader><DialogTitle>Add Project</DialogTitle></DialogHeader>
+          <DialogHeader>
+            <DialogTitle>Add Project</DialogTitle>
+            <DialogDescription className="sr-only">Create a new project under a client.</DialogDescription>
+          </DialogHeader>
           <div className="space-y-3">
             <div><Label>Name</Label><Input value={name} onChange={e => setName(e.target.value)} /></div>
             <div>

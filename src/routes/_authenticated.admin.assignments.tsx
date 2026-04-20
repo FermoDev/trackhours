@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Plus, Trash2 } from "lucide-react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import type { Tables } from "@/integrations/supabase/types";
 
@@ -88,7 +88,10 @@ function AdminAssignmentsPage() {
       </Card>
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent>
-          <DialogHeader><DialogTitle>Assign User to Project</DialogTitle></DialogHeader>
+          <DialogHeader>
+            <DialogTitle>Assign User to Project</DialogTitle>
+            <DialogDescription className="sr-only">Select a user and a project to create an assignment.</DialogDescription>
+          </DialogHeader>
           <div className="space-y-3">
             <div>
               <Label>User</Label>
