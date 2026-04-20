@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
 import { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
@@ -19,14 +19,23 @@ export const Route = createFileRoute("/_authenticated/admin/clients")({
 
 function AdminClientsPage() {
   const [clients, setClients] = useState<Tables<"clients">[]>([]);
+  const [projectCounts, setProjectCounts] = useState<Record<string, number>>({});
   const [dialogOpen, setDialogOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Tables<"clients"> | null>(null);
   const [name, setName] = useState("");
   const [code, setCode] = useState("");
 
   const fetchClients = async () => {
-    const { data } = await supabase.from("clients").select("*").order("name");
-    if (data) setClients(data);
+    const [{ data: cData }, { data: pData }] = await Promise.all([
+      supabase.from("clients").select("*").order("name"),
+      supabase.from("projects").select("client_id"),
+    ]);
+    if (cData) setClients(cData);
+    if (pData) {
+      const counts: Record<string, number> = {};
+      for (const row of pData) counts[row.client_id] = (counts[row.client_id] || 0) + 1;
+      setProjectCounts(counts);
+    }
   };
 
   useEffect(() => { fetchClients(); }, []);
@@ -65,6 +74,7 @@ function AdminClientsPage() {
               <TableRow>
                 <TableHead>Name</TableHead>
                 <TableHead>Code</TableHead>
+                <TableHead>Projects</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Created</TableHead>
                 <TableHead></TableHead>
@@ -75,6 +85,15 @@ function AdminClientsPage() {
                 <TableRow key={c.id}>
                   <TableCell className="font-medium">{c.name}</TableCell>
                   <TableCell>{c.code || "—"}</TableCell>
+                  <TableCell>
+                    {projectCounts[c.id] ? (
+                      <Link to="/admin/projects" search={{ client: c.id }} className="text-primary hover:underline">
+                        {projectCounts[c.id]}
+                      </Link>
+                    ) : (
+                      <span className="text-muted-foreground">0</span>
+                    )}
+                  </TableCell>
                   <TableCell><Badge variant={c.status === "active" ? "default" : "secondary"}>{c.status}</Badge></TableCell>
                   <TableCell className="text-muted-foreground text-sm">{c.created_at.slice(0, 10)}</TableCell>
                   <TableCell className="text-right">
