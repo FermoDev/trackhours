@@ -1,23 +1,26 @@
 
-The user approved testing the sidebar by clicking through each section in the live preview (they've logged in).
 
-Plan: Use browser automation to navigate to each sidebar route in sequence, take screenshots, and report what renders vs any errors.
+## Add client linkage to Projects page
 
-Routes to test (11 total):
-1. `/dashboard` — freelancer landing
-2. `/timesheet`
-3. `/weekly`
-4. `/admin` — admin dashboard
-5. `/admin/users`
-6. `/admin/clients`
-7. `/admin/projects`
-8. `/admin/assignments`
-9. `/admin/entries`
-10. `/admin/reports`
-11. `/settings`
+The Projects tab already stores `client_id` on each project, but the UI treats projects as a flat list. I'll make the relationship to clients explicit and navigable.
 
-For each: `navigate_to_sandbox` to the path, screenshot, note whether the page renders content, shows an error, or appears blank. Also watch console logs for errors.
+### Changes to `src/routes/_authenticated.admin.projects.tsx`
 
-After the run, deliver a per-route status table (OK / broken / empty-state) plus any console errors found, and propose fixes only if something is actually broken.
+1. **Filter by client** — add a client `<Select>` filter above the table ("All clients" + each active client). Filters the project list in place.
 
-No code changes in this plan — it's verification only. If issues surface, I'll report them and ask before fixing.
+2. **Make the Client column clickable** — in each row, the client name becomes a `<Link to="/admin/clients">` (with the client name highlighted as a link). Clicking takes the admin to the Clients tab.
+
+3. **Group/sort by client** — order projects by client name, then project name, so projects belonging to the same client cluster together visually.
+
+4. **Empty-state hint** — if there are zero active clients when the user opens "Add Project", show inline text in the dialog: "No active clients yet — add a client first" with a link to `/admin/clients`.
+
+5. **Project count on Clients page** (`src/routes/_authenticated.admin.clients.tsx`) — add a "Projects" column showing how many projects each client has. The count itself is a link to `/admin/projects?client=<id>` so admins can jump straight from a client to its projects.
+
+6. **Read `?client=` query param** on the Projects page — if present, pre-set the client filter on mount so the cross-link from Clients lands on a filtered view.
+
+### Technical notes
+
+- Use `useSearch` from `@tanstack/react-router` to read the `client` query param; declare it via `validateSearch` on the route.
+- Project counts on the Clients page: single query — `supabase.from("projects").select("client_id")` then tally client-side (small dataset, no extra round trips per row).
+- No DB or schema changes. No new components.
+
