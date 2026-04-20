@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
 import { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
@@ -14,12 +14,18 @@ import { Checkbox } from "@/components/ui/checkbox";
 import type { Tables } from "@/integrations/supabase/types";
 
 export const Route = createFileRoute("/_authenticated/admin/projects")({
+  validateSearch: (search: Record<string, unknown>): { client?: string } => ({
+    client: typeof search.client === "string" ? search.client : undefined,
+  }),
   component: AdminProjectsPage,
 });
 
 function AdminProjectsPage() {
+  const { client: clientFilterParam } = Route.useSearch();
+  const navigate = useNavigate({ from: "/admin/projects" });
   const [projects, setProjects] = useState<(Tables<"projects"> & { clients: { name: string } | null })[]>([]);
   const [clients, setClients] = useState<Tables<"clients">[]>([]);
+  const [clientFilter, setClientFilter] = useState<string>(clientFilterParam || "all");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [name, setName] = useState("");
   const [clientId, setClientId] = useState("");
@@ -27,7 +33,7 @@ function AdminProjectsPage() {
   const [billable, setBillable] = useState(true);
 
   const fetchProjects = async () => {
-    const { data } = await supabase.from("projects").select("*, clients(name)").order("name");
+    const { data } = await supabase.from("projects").select("*, clients(name)");
     if (data) setProjects(data as any);
   };
 
@@ -35,6 +41,15 @@ function AdminProjectsPage() {
     fetchProjects();
     supabase.from("clients").select("*").eq("status", "active").order("name").then(({ data }) => data && setClients(data));
   }, []);
+
+  useEffect(() => {
+    setClientFilter(clientFilterParam || "all");
+  }, [clientFilterParam]);
+
+  const handleFilterChange = (value: string) => {
+    setClientFilter(value);
+    navigate({ search: value === "all" ? {} : { client: value }, replace: true });
+  };
 
   const handleAdd = async () => {
     if (!name || !clientId) return;
@@ -48,11 +63,30 @@ function AdminProjectsPage() {
     fetchProjects();
   };
 
+  const sorted = [...projects].sort((a, b) => {
+    const cn = (a.clients?.name || "").localeCompare(b.clients?.name || "");
+    return cn !== 0 ? cn : a.name.localeCompare(b.name);
+  });
+  const filtered = clientFilter === "all" ? sorted : sorted.filter(p => p.client_id === clientFilter);
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold tracking-tight">Projects</h1>
         <Button onClick={() => setDialogOpen(true)} className="rounded-xl"><Plus className="h-4 w-4 mr-2" />Add Project</Button>
+      </div>
+      <div className="flex items-center gap-3">
+        <Label className="text-sm text-muted-foreground">Filter by client</Label>
+        <Select value={clientFilter} onValueChange={handleFilterChange}>
+          <SelectTrigger className="w-[240px]"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All clients</SelectItem>
+            {clients.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+          </SelectContent>
+        </Select>
+        {clientFilter !== "all" && (
+          <Button variant="ghost" size="sm" onClick={() => handleFilterChange("all")}>Clear</Button>
+        )}
       </div>
       <Card>
         <CardContent className="p-0">
@@ -67,10 +101,17 @@ function AdminProjectsPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {projects.map(p => (
+              {filtered.length === 0 && (
+                <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-8">No projects found.</TableCell></TableRow>
+              )}
+              {filtered.map(p => (
                 <TableRow key={p.id}>
                   <TableCell className="font-medium">{p.name}</TableCell>
-                  <TableCell>{p.clients?.name || "—"}</TableCell>
+                  <TableCell>
+                    {p.clients?.name ? (
+                      <Link to="/admin/clients" className="text-primary hover:underline">{p.clients.name}</Link>
+                    ) : "—"}
+                  </TableCell>
                   <TableCell>{p.billable_default ? "Yes" : "No"}</TableCell>
                   <TableCell><Badge variant={p.status === "active" ? "default" : "secondary"}>{p.status}</Badge></TableCell>
                   <TableCell><Button variant="ghost" size="sm" onClick={() => toggleStatus(p)}>{p.status === "active" ? "Archive" : "Activate"}</Button></TableCell>
@@ -87,10 +128,16 @@ function AdminProjectsPage() {
             <div><Label>Name</Label><Input value={name} onChange={e => setName(e.target.value)} /></div>
             <div>
               <Label>Client</Label>
-              <Select value={clientId} onValueChange={setClientId}>
-                <SelectTrigger><SelectValue placeholder="Select client" /></SelectTrigger>
-                <SelectContent>{clients.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
-              </Select>
+              {clients.length === 0 ? (
+                <p className="text-sm text-muted-foreground mt-1">
+                  No active clients yet — <Link to="/admin/clients" className="text-primary hover:underline">add a client first</Link>.
+                </p>
+              ) : (
+                <Select value={clientId} onValueChange={setClientId}>
+                  <SelectTrigger><SelectValue placeholder="Select client" /></SelectTrigger>
+                  <SelectContent>{clients.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
+                </Select>
+              )}
             </div>
             <div><Label>Description</Label><Input value={desc} onChange={e => setDesc(e.target.value)} /></div>
             <div className="flex items-center gap-2">
