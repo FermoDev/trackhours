@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Play, Square, Clock, Plus, RotateCcw, Zap } from "lucide-react";
 import { toast } from "sonner";
@@ -355,7 +355,10 @@ function FreelancerDashboard() {
       {/* Add Client Dialog */}
       <Dialog open={addClientOpen} onOpenChange={setAddClientOpen}>
         <DialogContent>
-          <DialogHeader><DialogTitle>Add Client</DialogTitle></DialogHeader>
+          <DialogHeader>
+            <DialogTitle>Add Client</DialogTitle>
+            <DialogDescription className="sr-only">Quickly create a new client.</DialogDescription>
+          </DialogHeader>
           <div className="space-y-2">
             <Label>Client name</Label>
             <Input value={newClientName} onChange={e => setNewClientName(e.target.value)} placeholder="e.g. Acme Corp" />
@@ -367,7 +370,10 @@ function FreelancerDashboard() {
       {/* Add Project Dialog */}
       <Dialog open={addProjectOpen} onOpenChange={setAddProjectOpen}>
         <DialogContent>
-          <DialogHeader><DialogTitle>Add Project</DialogTitle></DialogHeader>
+          <DialogHeader>
+            <DialogTitle>Add Project</DialogTitle>
+            <DialogDescription className="sr-only">Quickly create a new project under the selected client.</DialogDescription>
+          </DialogHeader>
           <div className="space-y-2">
             <Label>Project name</Label>
             <Input value={newProjectName} onChange={e => setNewProjectName(e.target.value)} placeholder="e.g. Website Redesign" />
