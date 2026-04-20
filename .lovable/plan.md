@@ -1,37 +1,45 @@
 
 
-## Fix dialog/alert-dialog open/close animation jank
+## Add role management, disable, and delete for admins
 
-The buggy "drift" you're seeing on every modal (Add Project, Add Client, Assign User, etc.) comes from the shadcn defaults in `dialog.tsx` and `alert-dialog.tsx`. Both files combine **centering via `translate-x/y-[-50%]`** with **slide-in/out animations that also translate** (`slide-in-from-left-1/2`, `slide-out-to-top-[48%]`). The two translates fight each other, so the modal jumps sideways/upward as it appears or closes.
+Today `/admin/users` only displays role/status and resets passwords. I'll add admin-only controls for changing roles, disabling/re-enabling users, and deleting users. Freelancers cannot escalate their own role — RLS already blocks that, and the new server functions re-verify admin status.
 
-### Changes
+### Server functions (`src/server/admin.functions.ts`)
 
-**`src/components/ui/dialog.tsx` — `DialogContent`**
-- Remove the conflicting slide classes: `data-[state=closed]:slide-out-to-left-1/2`, `data-[state=closed]:slide-out-to-top-[48%]`, `data-[state=open]:slide-in-from-left-1/2`, `data-[state=open]:slide-in-from-top-[48%]`.
-- Keep `fade-in-0` / `fade-out-0` and `zoom-in-95` / `zoom-out-95` (these don't conflict with the centering translate).
-- Bump `duration-200` for a smoother feel.
+Add three new functions, all wrapped in `requireSupabaseAuth` + admin check (same pattern as `adminResetPassword`):
 
-**`src/components/ui/alert-dialog.tsx` — `AlertDialogContent`**
-- Same fix: drop the four `slide-*-1/2` / `slide-*-top-[48%]` classes; keep fade + zoom.
+1. **`adminUpdateUserRole`** — input `{ userId, role: 'admin' | 'freelancer' | 'manager' }`. Uses `supabaseAdmin` to upsert into `user_roles`. Guards:
+   - Caller must be admin.
+   - Caller cannot demote themselves (prevents locking out the last admin by accident).
+   - If demoting an admin and they are the only admin left → reject with "At least one admin must remain".
 
-**`src/components/ui/dialog.tsx` and `alert-dialog.tsx` — overlays**
-- Add explicit `duration-200` to the overlay so the backdrop fade matches the content fade (currently it has no duration class and snaps).
+2. **`adminSetUserStatus`** — input `{ userId, status: 'active' | 'inactive' }`. Updates `profiles.status`. When set to `inactive`, also calls `supabaseAdmin.auth.admin.updateUserById(userId, { ban_duration: '876000h' })` (≈100 years) to block sign-in. Reactivating clears the ban (`ban_duration: 'none'`). Caller cannot disable themselves.
 
-**`src/components/ui/sheet.tsx`**
-- No animation bug here (sheets slide from edges with no centering translate), but I'll verify the overlay duration matches the content (it currently uses `duration-300`/`duration-500` only on content, overlay snaps). Add `duration-300` to overlay for consistency.
+3. **`adminDeleteUser`** — input `{ userId }`. Calls `supabaseAdmin.auth.admin.deleteUser(userId)` — this cascades to `profiles`, `user_roles`, `time_entries`, `project_assignments`, `activity_logs` via existing FKs / cascade rules. Caller cannot delete themselves; cannot delete the last admin.
 
-**Console-noise cleanup (related)**
-- The console shows `Missing Description or aria-describedby for {DialogContent}` warnings on the admin assignment + project dialogs. I'll add a `<DialogDescription className="sr-only">` (or visible where it helps) inside:
-  - `src/routes/_authenticated.admin.assignments.tsx` (Assign dialog)
-  - `src/routes/_authenticated.admin.projects.tsx` (Add Project dialog)
-  - `src/routes/_authenticated.admin.clients.tsx` (Add Client dialog, if missing)
-  - `src/routes/_authenticated.dashboard.tsx` (Manual entry dialog, if it uses Dialog)
-  - `src/routes/_authenticated.timesheet.tsx` (any edit dialog)
+### UI changes (`src/routes/_authenticated.admin.users.tsx`)
 
-This silences the a11y warning and also fixes a subtle Radix behavior where missing description can cause re-renders that visually compound the animation glitch.
+Add an **Actions** column with:
+
+- **Role `<Select>`** inline (admin / manager / freelancer) — changes commit immediately with toast confirmation. Disabled on the current admin's own row.
+- **Disable / Enable toggle button** — `Power` icon. Confirms via `AlertDialog` ("This user will no longer be able to sign in."). Disabled on own row.
+- **Delete button** — `Trash2` icon, red. `AlertDialog` confirmation: "Permanently delete {email} and all their time entries? This cannot be undone." Disabled on own row.
+- **Existing "Reset Password" button** stays.
+
+Also:
+- Pass current admin's `user.id` into the page (via `useAuth`) to disable self-targeted destructive actions.
+- After any successful mutation, refetch the users list.
+- Sort: admins first, then by name, so role changes are visually obvious.
+
+### Why freelancers can't change their own role
+
+- DB enforcement: RLS on `user_roles` allows `SELECT` only for own row; all writes require `has_role(auth.uid(), 'admin')`. A freelancer calling `supabase.from('user_roles').update(...)` from the browser is rejected by Postgres.
+- Server enforcement: every new admin function re-verifies the caller's role via `supabaseAdmin` before doing anything.
+- UI enforcement: the role/disable/delete controls only render on `/admin/users`, which is already inside the admin route guard.
 
 ### Out of scope
 
-- No changes to colors, layout, or modal contents.
-- No changes to Popover/Select/Tooltip/Context/DropdownMenu animations — those don't use a centering translate, so their slide animations are correct as-is.
+- No schema changes (existing `user_roles`, `profiles.status`, and Supabase Auth ban mechanism cover this).
+- No bulk actions, no audit log entries beyond what `activity_logs` already captures (can add later if you want).
+- Manager role permissions are not changed — `manager` exists in the enum but currently behaves like a freelancer; tell me if you want me to wire it up to specific admin-lite capabilities.
 
