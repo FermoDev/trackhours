@@ -1,26 +1,37 @@
 
 
-## Add client linkage to Projects page
+## Fix dialog/alert-dialog open/close animation jank
 
-The Projects tab already stores `client_id` on each project, but the UI treats projects as a flat list. I'll make the relationship to clients explicit and navigable.
+The buggy "drift" you're seeing on every modal (Add Project, Add Client, Assign User, etc.) comes from the shadcn defaults in `dialog.tsx` and `alert-dialog.tsx`. Both files combine **centering via `translate-x/y-[-50%]`** with **slide-in/out animations that also translate** (`slide-in-from-left-1/2`, `slide-out-to-top-[48%]`). The two translates fight each other, so the modal jumps sideways/upward as it appears or closes.
 
-### Changes to `src/routes/_authenticated.admin.projects.tsx`
+### Changes
 
-1. **Filter by client** — add a client `<Select>` filter above the table ("All clients" + each active client). Filters the project list in place.
+**`src/components/ui/dialog.tsx` — `DialogContent`**
+- Remove the conflicting slide classes: `data-[state=closed]:slide-out-to-left-1/2`, `data-[state=closed]:slide-out-to-top-[48%]`, `data-[state=open]:slide-in-from-left-1/2`, `data-[state=open]:slide-in-from-top-[48%]`.
+- Keep `fade-in-0` / `fade-out-0` and `zoom-in-95` / `zoom-out-95` (these don't conflict with the centering translate).
+- Bump `duration-200` for a smoother feel.
 
-2. **Make the Client column clickable** — in each row, the client name becomes a `<Link to="/admin/clients">` (with the client name highlighted as a link). Clicking takes the admin to the Clients tab.
+**`src/components/ui/alert-dialog.tsx` — `AlertDialogContent`**
+- Same fix: drop the four `slide-*-1/2` / `slide-*-top-[48%]` classes; keep fade + zoom.
 
-3. **Group/sort by client** — order projects by client name, then project name, so projects belonging to the same client cluster together visually.
+**`src/components/ui/dialog.tsx` and `alert-dialog.tsx` — overlays**
+- Add explicit `duration-200` to the overlay so the backdrop fade matches the content fade (currently it has no duration class and snaps).
 
-4. **Empty-state hint** — if there are zero active clients when the user opens "Add Project", show inline text in the dialog: "No active clients yet — add a client first" with a link to `/admin/clients`.
+**`src/components/ui/sheet.tsx`**
+- No animation bug here (sheets slide from edges with no centering translate), but I'll verify the overlay duration matches the content (it currently uses `duration-300`/`duration-500` only on content, overlay snaps). Add `duration-300` to overlay for consistency.
 
-5. **Project count on Clients page** (`src/routes/_authenticated.admin.clients.tsx`) — add a "Projects" column showing how many projects each client has. The count itself is a link to `/admin/projects?client=<id>` so admins can jump straight from a client to its projects.
+**Console-noise cleanup (related)**
+- The console shows `Missing Description or aria-describedby for {DialogContent}` warnings on the admin assignment + project dialogs. I'll add a `<DialogDescription className="sr-only">` (or visible where it helps) inside:
+  - `src/routes/_authenticated.admin.assignments.tsx` (Assign dialog)
+  - `src/routes/_authenticated.admin.projects.tsx` (Add Project dialog)
+  - `src/routes/_authenticated.admin.clients.tsx` (Add Client dialog, if missing)
+  - `src/routes/_authenticated.dashboard.tsx` (Manual entry dialog, if it uses Dialog)
+  - `src/routes/_authenticated.timesheet.tsx` (any edit dialog)
 
-6. **Read `?client=` query param** on the Projects page — if present, pre-set the client filter on mount so the cross-link from Clients lands on a filtered view.
+This silences the a11y warning and also fixes a subtle Radix behavior where missing description can cause re-renders that visually compound the animation glitch.
 
-### Technical notes
+### Out of scope
 
-- Use `useSearch` from `@tanstack/react-router` to read the `client` query param; declare it via `validateSearch` on the route.
-- Project counts on the Clients page: single query — `supabase.from("projects").select("client_id")` then tally client-side (small dataset, no extra round trips per row).
-- No DB or schema changes. No new components.
+- No changes to colors, layout, or modal contents.
+- No changes to Popover/Select/Tooltip/Context/DropdownMenu animations — those don't use a centering translate, so their slide animations are correct as-is.
 
