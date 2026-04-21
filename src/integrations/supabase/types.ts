@@ -129,6 +129,7 @@ export type Database = {
           billable_default: boolean
           client_id: string
           created_at: string
+          created_by: string | null
           description: string | null
           id: string
           name: string
@@ -138,6 +139,7 @@ export type Database = {
           billable_default?: boolean
           client_id: string
           created_at?: string
+          created_by?: string | null
           description?: string | null
           id?: string
           name: string
@@ -147,6 +149,7 @@ export type Database = {
           billable_default?: boolean
           client_id?: string
           created_at?: string
+          created_by?: string | null
           description?: string | null
           id?: string
           name?: string
