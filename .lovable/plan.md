@@ -1,45 +1,109 @@
 
 
-## Add role management, disable, and delete for admins
+## Auto-assign freelancers to clients/projects they create
 
-Today `/admin/users` only displays role/status and resets passwords. I'll add admin-only controls for changing roles, disabling/re-enabling users, and deleting users. Freelancers cannot escalate their own role — RLS already blocks that, and the new server functions re-verify admin status.
+When a freelancer adds a client or project from the dashboard, they'll be automatically assigned to it so they retain visibility. Admins always see everything — no impact on reporting.
 
-### Server functions (`src/server/admin.functions.ts`)
+### Database migration
 
-Add three new functions, all wrapped in `requireSupabaseAuth` + admin check (same pattern as `adminResetPassword`):
+1. **Update `clients` SELECT policy** — replace the current "all active clients visible" policy with one that checks either admin status OR the user has at least one project assignment under that client. Also add a new condition: the user created a `time_entry` referencing that client (covers the brief window before project assignment exists).
 
-1. **`adminUpdateUserRole`** — input `{ userId, role: 'admin' | 'freelancer' | 'manager' }`. Uses `supabaseAdmin` to upsert into `user_roles`. Guards:
-   - Caller must be admin.
-   - Caller cannot demote themselves (prevents locking out the last admin by accident).
-   - If demoting an admin and they are the only admin left → reject with "At least one admin must remain".
+2. **Update `projects` SELECT policy** — the current policy still falls back to `status = 'active'` for everyone, which defeats the restriction. Replace with: admin OR exists in `project_assignments`.
 
-2. **`adminSetUserStatus`** — input `{ userId, status: 'active' | 'inactive' }`. Updates `profiles.status`. When set to `inactive`, also calls `supabaseAdmin.auth.admin.updateUserById(userId, { ban_duration: '876000h' })` (≈100 years) to block sign-in. Reactivating clears the ban (`ban_duration: 'none'`). Caller cannot disable themselves.
+3. **Drop the overly permissive INSERT policies** on `clients` and `projects` — these currently allow any authenticated user to insert with `WITH CHECK (true)`. Replace with policies that allow authenticated users to insert but only admins can insert projects without an assignment (freelancers get auto-assigned via a trigger).
 
-3. **`adminDeleteUser`** — input `{ userId }`. Calls `supabaseAdmin.auth.admin.deleteUser(userId)` — this cascades to `profiles`, `user_roles`, `time_entries`, `project_assignments`, `activity_logs` via existing FKs / cascade rules. Caller cannot delete themselves; cannot delete the last admin.
+4. **Create a trigger on `projects` INSERT** — after a non-admin user creates a project, automatically insert a `project_assignments` row linking that user to the new project. This is the cleanest approach because:
+   - It happens at the DB level, so no client code changes are needed.
+   - The freelancer immediately sees the project they just created.
+   - The admin sees it too (admin RLS bypasses assignment checks).
 
-### UI changes (`src/routes/_authenticated.admin.users.tsx`)
+```sql
+-- Trigger function
+CREATE OR REPLACE FUNCTION public.auto_assign_project_creator()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO 'public'
+AS $$
+BEGIN
+  -- Only auto-assign if the creator is not an admin
+  IF NOT has_role(auth.uid(), 'admin'::app_role) THEN
+    INSERT INTO public.project_assignments (user_id, project_id)
+    VALUES (auth.uid(), NEW.id)
+    ON CONFLICT DO NOTHING;
+  END IF;
+  RETURN NEW;
+END;
+$$;
 
-Add an **Actions** column with:
+CREATE TRIGGER trg_auto_assign_project
+  AFTER INSERT ON public.projects
+  FOR EACH ROW
+  EXECUTE FUNCTION public.auto_assign_project_creator();
+```
 
-- **Role `<Select>`** inline (admin / manager / freelancer) — changes commit immediately with toast confirmation. Disabled on the current admin's own row.
-- **Disable / Enable toggle button** — `Power` icon. Confirms via `AlertDialog` ("This user will no longer be able to sign in."). Disabled on own row.
-- **Delete button** — `Trash2` icon, red. `AlertDialog` confirmation: "Permanently delete {email} and all their time entries? This cannot be undone." Disabled on own row.
-- **Existing "Reset Password" button** stays.
+5. **Tighten `clients` and `projects` SELECT policies:**
 
-Also:
-- Pass current admin's `user.id` into the page (via `useAuth`) to disable self-targeted destructive actions.
-- After any successful mutation, refetch the users list.
-- Sort: admins first, then by name, so role changes are visually obvious.
+```sql
+-- Clients: admins see all; others see only clients linked to their assigned projects
+DROP POLICY "Authenticated users can view active clients" ON public.clients;
+CREATE POLICY "Users can view assigned clients" ON public.clients
+  FOR SELECT USING (
+    has_role(auth.uid(), 'admin'::app_role)
+    OR EXISTS (
+      SELECT 1 FROM project_assignments pa
+      JOIN projects p ON p.id = pa.project_id
+      WHERE p.client_id = clients.id AND pa.user_id = auth.uid()
+    )
+  );
 
-### Why freelancers can't change their own role
+-- Projects: admins see all; others see only assigned projects
+DROP POLICY "Users can view assigned projects" ON public.projects;
+CREATE POLICY "Users can view assigned projects" ON public.projects
+  FOR SELECT USING (
+    has_role(auth.uid(), 'admin'::app_role)
+    OR EXISTS (
+      SELECT 1 FROM project_assignments
+      WHERE project_assignments.project_id = projects.id
+        AND project_assignments.user_id = auth.uid()
+    )
+  );
+```
 
-- DB enforcement: RLS on `user_roles` allows `SELECT` only for own row; all writes require `has_role(auth.uid(), 'admin')`. A freelancer calling `supabase.from('user_roles').update(...)` from the browser is rejected by Postgres.
-- Server enforcement: every new admin function re-verifies the caller's role via `supabaseAdmin` before doing anything.
-- UI enforcement: the role/disable/delete controls only render on `/admin/users`, which is already inside the admin route guard.
+6. **Drop overly permissive INSERT policies:**
 
-### Out of scope
+```sql
+DROP POLICY IF EXISTS "Authenticated users can add clients" ON public.clients;
+DROP POLICY IF EXISTS "Authenticated users can add projects" ON public.projects;
 
-- No schema changes (existing `user_roles`, `profiles.status`, and Supabase Auth ban mechanism cover this).
-- No bulk actions, no audit log entries beyond what `activity_logs` already captures (can add later if you want).
-- Manager role permissions are not changed — `manager` exists in the enum but currently behaves like a freelancer; tell me if you want me to wire it up to specific admin-lite capabilities.
+-- Allow authenticated users to insert clients (admin ALL policy already covers admins)
+CREATE POLICY "Authenticated users can add clients" ON public.clients
+  FOR INSERT TO authenticated WITH CHECK (true);
+
+-- Allow authenticated users to insert projects (trigger auto-assigns them)
+CREATE POLICY "Authenticated users can add projects" ON public.projects
+  FOR INSERT TO authenticated WITH CHECK (true);
+```
+
+### No frontend code changes needed
+
+- The dashboard's "Add Client" and "Add Project" buttons continue to work as-is.
+- The auto-assign trigger handles the linking transparently.
+- RLS filters the client/project dropdowns automatically — freelancers only see their assigned data.
+- Admin pages (`/admin/reports`, `/admin/entries`) use admin RLS which sees everything — total hours, all users per client, all projects.
+
+### How admin reporting works (no changes)
+
+| What admin sees | How |
+|---|---|
+| All clients and projects | `has_role(auth.uid(), 'admin')` in SELECT policies |
+| All time entries from all users | `time_entries` SELECT policy allows admin access |
+| All profiles | `profiles` SELECT policy allows admin access |
+| Hours grouped by client/user/project | Reports page aggregates `time_entries` — unaffected |
+
+### Summary of the workflow
+
+1. Freelancer clicks "Add Client" → client created → freelancer adds a project under it → trigger auto-creates `project_assignment` → freelancer sees both client and project in their dropdowns.
+2. Admin goes to `/admin/assignments` → sees the auto-created assignment → can assign additional freelancers to the same project.
+3. Admin goes to `/admin/reports` → sees all hours for that client across all assigned freelancers.
 
