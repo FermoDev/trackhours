@@ -5,7 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { KeyRound, Loader2, Power, Trash2 } from "lucide-react";
+import { Building2, KeyRound, Loader2, Power, Trash2, X } from "lucide-react";
 import type { Tables } from "@/integrations/supabase/types";
 import {
   adminResetPassword,
@@ -27,6 +27,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { useAuth } from "@/lib/auth";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 
 export const Route = createFileRoute("/_authenticated/admin/users")({
   component: AdminUsersPage,
@@ -39,6 +40,10 @@ function AdminUsersPage() {
   const [profiles, setProfiles] = useState<(Tables<"profiles"> & { role: AppRole })[]>([]);
   const [resettingId, setResettingId] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [clientDialogUser, setClientDialogUser] = useState<(Tables<"profiles"> & { role: AppRole }) | null>(null);
+  const [userClients, setUserClients] = useState<Tables<"client_assignments">[]>([]);
+  const [allClients, setAllClients] = useState<Tables<"clients">[]>([]);
+  const [addingClientId, setAddingClientId] = useState("");
 
   const fetchData = useCallback(async () => {
     const [profRes, rolesRes] = await Promise.all([
@@ -62,6 +67,31 @@ function AdminUsersPage() {
   }, []);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+
+  useEffect(() => {
+    supabase.from("clients").select("*").eq("status", "active").order("name").then(({ data }) => data && setAllClients(data));
+  }, []);
+
+  const openClientDialog = async (profile: Tables<"profiles"> & { role: AppRole }) => {
+    setClientDialogUser(profile);
+    const { data } = await supabase.from("client_assignments").select("*").eq("user_id", profile.user_id);
+    setUserClients(data || []);
+  };
+
+  const addClientAssignment = async () => {
+    if (!clientDialogUser || !addingClientId) return;
+    await supabase.from("client_assignments").insert({ user_id: clientDialogUser.user_id, client_id: addingClientId });
+    setAddingClientId("");
+    const { data } = await supabase.from("client_assignments").select("*").eq("user_id", clientDialogUser.user_id);
+    setUserClients(data || []);
+  };
+
+  const removeClientAssignment = async (id: string) => {
+    if (!clientDialogUser) return;
+    await supabase.from("client_assignments").delete().eq("id", id);
+    const { data } = await supabase.from("client_assignments").select("*").eq("user_id", clientDialogUser.user_id);
+    setUserClients(data || []);
+  };
 
   const handleResetPassword = async (profile: Tables<"profiles">) => {
     setResettingId(profile.id);
@@ -179,6 +209,14 @@ function AdminUsersPage() {
                         <Button
                           variant="ghost"
                           size="sm"
+                          onClick={() => openClientDialog(p)}
+                          title="Manage client assignments"
+                        >
+                          <Building2 className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
                           onClick={() => handleResetPassword(p)}
                           disabled={resettingId === p.id}
                           title="Send password reset email"
@@ -260,6 +298,42 @@ function AdminUsersPage() {
           </Table>
         </CardContent>
       </Card>
+
+      <Dialog open={!!clientDialogUser} onOpenChange={(open) => !open && setClientDialogUser(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Client assignments — {clientDialogUser?.full_name || clientDialogUser?.email}</DialogTitle>
+            <DialogDescription className="sr-only">Manage which clients are assigned to this user.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="flex flex-wrap gap-2">
+              {userClients.length === 0 && <p className="text-sm text-muted-foreground">No clients assigned.</p>}
+              {userClients.map(ca => {
+                const client = allClients.find(c => c.id === ca.client_id);
+                return (
+                  <Badge key={ca.id} variant="secondary" className="gap-1 pr-1">
+                    {client?.name || "Unknown"}
+                    <button onClick={() => removeClientAssignment(ca.id)} className="ml-1 rounded-full hover:bg-muted p-0.5">
+                      <X className="h-3 w-3" />
+                    </button>
+                  </Badge>
+                );
+              })}
+            </div>
+            <div className="flex gap-2">
+              <Select value={addingClientId} onValueChange={setAddingClientId}>
+                <SelectTrigger className="flex-1"><SelectValue placeholder="Add a client…" /></SelectTrigger>
+                <SelectContent>
+                  {allClients.filter(c => !userClients.some(uc => uc.client_id === c.id)).map(c => (
+                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button onClick={addClientAssignment} disabled={!addingClientId} size="sm">Add</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
