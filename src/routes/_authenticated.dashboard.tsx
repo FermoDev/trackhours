@@ -33,9 +33,7 @@ function FreelancerDashboard() {
   const [manualDuration, setManualDuration] = useState("");
   const [manualDesc, setManualDesc] = useState("");
   const [showFullStart, setShowFullStart] = useState(false);
-  const [addClientOpen, setAddClientOpen] = useState(false);
   const [addProjectOpen, setAddProjectOpen] = useState(false);
-  const [newClientName, setNewClientName] = useState("");
   const [newProjectName, setNewProjectName] = useState("");
 
   const TARGET_DAY = 480; // 8h
@@ -122,17 +120,6 @@ function FreelancerDashboard() {
 
   const handleQuickStart = async (clientId: string, projectId: string) => {
     await startTimer(clientId, projectId);
-  };
-
-  const handleAddClient = async () => {
-    if (!newClientName.trim()) return;
-    const { data, error } = await supabase.from("clients").insert({ name: newClientName.trim() }).select().single();
-    if (error) { toast.error("Failed to add client"); return; }
-    setNewClientName("");
-    setAddClientOpen(false);
-    toast.success("Client added");
-    fetchData();
-    if (data) setSelectedClient(data.id);
   };
 
   const handleAddProject = async () => {
@@ -250,7 +237,7 @@ function FreelancerDashboard() {
           </CardHeader>
           <CardContent className="space-y-3">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div className="flex gap-1.5">
+              <div>
                 <Select value={selectedClient} onValueChange={(v) => { setSelectedClient(v); setSelectedProject(""); }}>
                   <SelectTrigger><SelectValue placeholder="Select client" /></SelectTrigger>
                   <SelectContent>
@@ -258,7 +245,6 @@ function FreelancerDashboard() {
                     {clients.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
                   </SelectContent>
                 </Select>
-                <Button variant="outline" size="icon" className="shrink-0" onClick={() => setAddClientOpen(true)} title="Add client"><Plus className="h-3.5 w-3.5" /></Button>
               </div>
               <div className="flex gap-1.5">
                 <Select value={selectedProject} onValueChange={setSelectedProject}>
@@ -286,7 +272,7 @@ function FreelancerDashboard() {
           </CardHeader>
           <CardContent className="space-y-3">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div className="flex gap-1.5">
+              <div>
                 <Select value={selectedClient} onValueChange={(v) => { setSelectedClient(v); setSelectedProject(""); }}>
                   <SelectTrigger><SelectValue placeholder="Select client" /></SelectTrigger>
                   <SelectContent>
@@ -294,7 +280,6 @@ function FreelancerDashboard() {
                     {clients.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
                   </SelectContent>
                 </Select>
-                <Button variant="outline" size="icon" className="shrink-0" onClick={() => setAddClientOpen(true)} title="Add client"><Plus className="h-3.5 w-3.5" /></Button>
               </div>
               <div className="flex gap-1.5">
                 <Select value={selectedProject} onValueChange={setSelectedProject}>
@@ -351,21 +336,6 @@ function FreelancerDashboard() {
           )}
         </CardContent>
       </Card>
-
-      {/* Add Client Dialog */}
-      <Dialog open={addClientOpen} onOpenChange={setAddClientOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Add Client</DialogTitle>
-            <DialogDescription className="sr-only">Quickly create a new client.</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-2">
-            <Label>Client name</Label>
-            <Input value={newClientName} onChange={e => setNewClientName(e.target.value)} placeholder="e.g. Acme Corp" />
-          </div>
-          <DialogFooter><Button onClick={handleAddClient} disabled={!newClientName.trim()}>Add</Button></DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       {/* Add Project Dialog */}
       <Dialog open={addProjectOpen} onOpenChange={setAddProjectOpen}>
