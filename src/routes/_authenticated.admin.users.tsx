@@ -5,7 +5,6 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { KeyRound, Loader2, Power, Trash2 } from "lucide-react";
 import { Building2, KeyRound, Loader2, Power, Trash2, X } from "lucide-react";
 import type { Tables } from "@/integrations/supabase/types";
 import {
