@@ -14,45 +14,50 @@ export const Route = createFileRoute("/_authenticated/admin/assignments")({
   component: AdminAssignmentsPage,
 });
 
+type AssignmentRow = Tables<"client_assignments"> & {
+  profileName?: string;
+  clientName?: string;
+};
+
 function AdminAssignmentsPage() {
-  const [assignments, setAssignments] = useState<(Tables<"project_assignments"> & { profiles?: { full_name: string } | null; projects?: { name: string } | null })[]>([]);
+  const [assignments, setAssignments] = useState<AssignmentRow[]>([]);
   const [profiles, setProfiles] = useState<Tables<"profiles">[]>([]);
-  const [projects, setProjects] = useState<Tables<"projects">[]>([]);
+  const [clients, setClients] = useState<Tables<"clients">[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [userId, setUserId] = useState("");
-  const [projectId, setProjectId] = useState("");
+  const [clientId, setClientId] = useState("");
 
   const fetchAssignments = async () => {
-    const { data } = await supabase.from("project_assignments").select("*").order("assigned_at", { ascending: false });
+    const { data } = await supabase.from("client_assignments").select("*").order("assigned_at", { ascending: false });
     if (!data) return;
-    const [profRes, projRes] = await Promise.all([
+    const [profRes, cliRes] = await Promise.all([
       supabase.from("profiles").select("user_id, full_name"),
-      supabase.from("projects").select("id, name"),
+      supabase.from("clients").select("id, name"),
     ]);
-    const profMap = new Map((profRes.data || []).map(p => [p.user_id, p]));
-    const projMap = new Map((projRes.data || []).map(p => [p.id, p]));
+    const profMap = new Map((profRes.data || []).map(p => [p.user_id, p.full_name]));
+    const cliMap = new Map((cliRes.data || []).map(c => [c.id, c.name]));
     setAssignments(data.map(a => ({
       ...a,
-      profiles: profMap.get(a.user_id) ? { full_name: profMap.get(a.user_id)!.full_name } : null,
-      projects: projMap.get(a.project_id) ? { name: projMap.get(a.project_id)!.name } : null,
+      profileName: profMap.get(a.user_id) || undefined,
+      clientName: cliMap.get(a.client_id) || undefined,
     })));
   };
 
   useEffect(() => {
     fetchAssignments();
     supabase.from("profiles").select("*").eq("status", "active").then(({ data }) => data && setProfiles(data));
-    supabase.from("projects").select("*").eq("status", "active").then(({ data }) => data && setProjects(data));
+    supabase.from("clients").select("*").eq("status", "active").order("name").then(({ data }) => data && setClients(data));
   }, []);
 
   const handleAdd = async () => {
-    if (!userId || !projectId) return;
-    await supabase.from("project_assignments").insert({ user_id: userId, project_id: projectId });
-    setUserId(""); setProjectId(""); setDialogOpen(false);
+    if (!userId || !clientId) return;
+    await supabase.from("client_assignments").insert({ user_id: userId, client_id: clientId });
+    setUserId(""); setClientId(""); setDialogOpen(false);
     fetchAssignments();
   };
 
   const handleDelete = async (id: string) => {
-    await supabase.from("project_assignments").delete().eq("id", id);
+    await supabase.from("client_assignments").delete().eq("id", id);
     fetchAssignments();
   };
 
@@ -68,7 +73,7 @@ function AdminAssignmentsPage() {
             <TableHeader>
               <TableRow>
                 <TableHead>User</TableHead>
-                <TableHead>Project</TableHead>
+                <TableHead>Client</TableHead>
                 <TableHead>Assigned</TableHead>
                 <TableHead></TableHead>
               </TableRow>
@@ -76,8 +81,8 @@ function AdminAssignmentsPage() {
             <TableBody>
               {assignments.map(a => (
                 <TableRow key={a.id}>
-                  <TableCell>{a.profiles?.full_name || "—"}</TableCell>
-                  <TableCell>{a.projects?.name || "—"}</TableCell>
+                  <TableCell>{a.profileName || "—"}</TableCell>
+                  <TableCell>{a.clientName || "—"}</TableCell>
                   <TableCell className="text-sm text-muted-foreground">{a.assigned_at.slice(0, 10)}</TableCell>
                   <TableCell><Button variant="ghost" size="sm" onClick={() => handleDelete(a.id)}><Trash2 className="h-4 w-4" /></Button></TableCell>
                 </TableRow>
@@ -89,8 +94,8 @@ function AdminAssignmentsPage() {
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Assign User to Project</DialogTitle>
-            <DialogDescription className="sr-only">Select a user and a project to create an assignment.</DialogDescription>
+            <DialogTitle>Assign User to Client</DialogTitle>
+            <DialogDescription className="sr-only">Select a user and a client to create an assignment.</DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
             <div>
@@ -101,14 +106,14 @@ function AdminAssignmentsPage() {
               </Select>
             </div>
             <div>
-              <Label>Project</Label>
-              <Select value={projectId} onValueChange={setProjectId}>
-                <SelectTrigger><SelectValue placeholder="Select project" /></SelectTrigger>
-                <SelectContent>{projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent>
+              <Label>Client</Label>
+              <Select value={clientId} onValueChange={setClientId}>
+                <SelectTrigger><SelectValue placeholder="Select client" /></SelectTrigger>
+                <SelectContent>{clients.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
               </Select>
             </div>
           </div>
-          <DialogFooter><Button onClick={handleAdd} disabled={!userId || !projectId}>Assign</Button></DialogFooter>
+          <DialogFooter><Button onClick={handleAdd} disabled={!userId || !clientId}>Assign</Button></DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
