@@ -1,10 +1,10 @@
 import { useTimer } from "@/hooks/use-timer";
 import { formatTimerDisplay } from "@/lib/format";
 import { Button } from "@/components/ui/button";
-import { Square, Clock } from "lucide-react";
+import { Square, Clock, Pause, Play } from "lucide-react";
 
 export function StickyTimer() {
-  const { activeEntry, elapsed, stopTimer, isLoading } = useTimer();
+  const { activeEntry, elapsed, stopTimer, isPaused, pauseTimer, resumeTimer, isLoading } = useTimer();
 
   if (!activeEntry) return null;
 
@@ -13,6 +13,7 @@ export function StickyTimer() {
       <div className="max-w-7xl mx-auto px-4 py-2.5 flex items-center justify-between gap-4">
         <div className="flex items-center gap-3 min-w-0">
           <Clock className="h-4 w-4 shrink-0 animate-pulse" />
+          {isPaused && <span className="text-xs font-medium opacity-80 bg-background/20 px-1.5 py-0.5 rounded">Paused</span>}
           <div className="min-w-0 flex items-center gap-3">
             <span className="font-mono text-lg font-bold tracking-wider tabular-nums">
               {formatTimerDisplay(elapsed)}
@@ -24,6 +25,15 @@ export function StickyTimer() {
             </span>
           </div>
         </div>
+        <Button
+          size="sm"
+          variant="secondary"
+          onClick={isPaused ? resumeTimer : pauseTimer}
+          disabled={isLoading}
+          className="rounded-xl shrink-0"
+        >
+          {isPaused ? <><Play className="h-3 w-3 mr-1" /> Resume</> : <><Pause className="h-3 w-3 mr-1" /> Pause</>}
+        </Button>
         <Button
           size="sm"
           variant="secondary"
