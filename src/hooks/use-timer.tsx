@@ -14,8 +14,11 @@ interface TimerContextValue {
   activeEntry: ActiveTimerEntry | null;
   elapsed: number;
   isLoading: boolean;
+  isPaused: boolean;
   startTimer: (clientId: string, projectId: string, description?: string) => Promise<void>;
   stopTimer: () => Promise<void>;
+  pauseTimer: () => void;
+  resumeTimer: () => void;
   refreshTimer: () => Promise<void>;
 }
 
@@ -26,6 +29,9 @@ export function TimerProvider({ children }: { children: ReactNode }) {
   const [activeEntry, setActiveEntry] = useState<ActiveTimerEntry | null>(null);
   const [elapsed, setElapsed] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
+  const [pausedElapsed, setPausedElapsed] = useState(0);
+  const [pauseOffset, setPauseOffset] = useState(0);
 
   const refreshTimer = useCallback(async () => {
     if (!user) { setActiveEntry(null); return; }
@@ -54,11 +60,12 @@ export function TimerProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!activeEntry?.start_time) { setElapsed(0); return; }
-    const calc = () => Math.floor((Date.now() - new Date(activeEntry.start_time!).getTime()) / 1000);
+    if (isPaused) return;
+    const calc = () => Math.floor((Date.now() - new Date(activeEntry.start_time!).getTime()) / 1000) - pauseOffset;
     setElapsed(calc());
     const id = setInterval(() => setElapsed(calc()), 1000);
     return () => clearInterval(id);
-  }, [activeEntry]);
+  }, [activeEntry, isPaused, pauseOffset]);
 
   useEffect(() => {
     if (!activeEntry) return;
@@ -67,9 +74,28 @@ export function TimerProvider({ children }: { children: ReactNode }) {
     return () => window.removeEventListener("beforeunload", handler);
   }, [activeEntry]);
 
+  const pauseTimer = () => {
+    if (!activeEntry || isPaused) return;
+    setIsPaused(true);
+    setPausedElapsed(elapsed);
+  };
+
+  const resumeTimer = () => {
+    if (!activeEntry || !isPaused) return;
+    const now = Date.now();
+    const startMs = new Date(activeEntry.start_time!).getTime();
+    const totalElapsedSinceStart = Math.floor((now - startMs) / 1000);
+    const newOffset = totalElapsedSinceStart - pausedElapsed;
+    setPauseOffset(newOffset);
+    setIsPaused(false);
+  };
+
   const startTimer = async (clientId: string, projectId: string, description?: string) => {
     if (!user || activeEntry) return;
     setIsLoading(true);
+    setPauseOffset(0);
+    setIsPaused(false);
+    setPausedElapsed(0);
     const now = new Date().toISOString();
     const { data } = await supabase
       .from("time_entries")
@@ -100,20 +126,22 @@ export function TimerProvider({ children }: { children: ReactNode }) {
   const stopTimer = async () => {
     if (!activeEntry) return;
     setIsLoading(true);
-    const now = new Date();
-    const startTime = new Date(activeEntry.start_time!);
-    const durationMinutes = Math.max(1, Math.round((now.getTime() - startTime.getTime()) / 60000));
+    const finalElapsed = isPaused ? pausedElapsed : elapsed;
+    const durationMinutes = Math.max(1, Math.round(finalElapsed / 60));
     await supabase
       .from("time_entries")
-      .update({ end_time: now.toISOString(), duration_minutes: durationMinutes })
+      .update({ end_time: new Date().toISOString(), duration_minutes: durationMinutes })
       .eq("id", activeEntry.id);
     setActiveEntry(null);
     setElapsed(0);
+    setIsPaused(false);
+    setPausedElapsed(0);
+    setPauseOffset(0);
     setIsLoading(false);
   };
 
   return (
-    <TimerContext.Provider value={{ activeEntry, elapsed, isLoading, startTimer, stopTimer, refreshTimer }}>
+    <TimerContext.Provider value={{ activeEntry, elapsed, isLoading, isPaused, startTimer, stopTimer, pauseTimer, resumeTimer, refreshTimer }}>
       {children}
     </TimerContext.Provider>
   );
