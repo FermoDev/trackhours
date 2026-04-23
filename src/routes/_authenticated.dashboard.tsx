@@ -3,15 +3,19 @@ import { useAuth } from "@/lib/auth";
 import { useTimer } from "@/hooks/use-timer";
 import { supabase } from "@/integrations/supabase/client";
 import { useState, useEffect, useCallback, useMemo } from "react";
+import { format } from "date-fns";
 import { formatDuration, formatTimerDisplay } from "@/lib/format";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { Play, Square, Clock, Plus, RotateCcw, Zap } from "lucide-react";
+import { Play, Square, Clock, Plus, RotateCcw, Zap, Pause, CalendarIcon } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import type { Tables } from "@/integrations/supabase/types";
 
@@ -21,7 +25,7 @@ export const Route = createFileRoute("/_authenticated/dashboard")({
 
 function FreelancerDashboard() {
   const { profile, user } = useAuth();
-  const { activeEntry, elapsed, startTimer, stopTimer, isLoading: timerLoading } = useTimer();
+  const { activeEntry, elapsed, startTimer, stopTimer, pauseTimer, resumeTimer, isPaused, isLoading: timerLoading } = useTimer();
   const [clients, setClients] = useState<Tables<"clients">[]>([]);
   const [projects, setProjects] = useState<Tables<"projects">[]>([]);
   const [recentEntries, setRecentEntries] = useState<(Tables<"time_entries"> & { clients: { name: string } | null; projects: { name: string } | null })[]>([]);
@@ -35,6 +39,7 @@ function FreelancerDashboard() {
   const [showFullStart, setShowFullStart] = useState(false);
   const [addProjectOpen, setAddProjectOpen] = useState(false);
   const [newProjectName, setNewProjectName] = useState("");
+  const [manualDate, setManualDate] = useState<Date>(new Date());
 
   const TARGET_DAY = 480; // 8h
   const TARGET_WEEK = 2400; // 40h
@@ -105,7 +110,7 @@ function FreelancerDashboard() {
       user_id: user.id,
       client_id: selectedClient,
       project_id: selectedProject,
-      entry_date: new Date().toISOString().slice(0, 10),
+      entry_date: format(manualDate, "yyyy-MM-dd"),
       duration_minutes: mins,
       description: manualDesc || null,
       entry_mode: "manual" as const,
@@ -115,6 +120,7 @@ function FreelancerDashboard() {
     setManualDuration("");
     setManualDesc("");
     setShowManual(false);
+    setManualDate(new Date());
     fetchData();
   };
 
@@ -213,17 +219,23 @@ function FreelancerDashboard() {
           <CardContent className="pt-6 pb-5">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <Clock className="h-5 w-5 text-timer" />
+                <Clock className={cn("h-5 w-5 text-timer", !isPaused && "animate-pulse")} />
                 <div>
                   <p className="text-3xl font-mono font-bold tracking-wider tabular-nums">{formatTimerDisplay(elapsed)}</p>
                   <p className="text-sm text-muted-foreground mt-0.5">
                     {activeEntry.projectName} · {activeEntry.clientName}
+                    {isPaused && <span className="ml-2 text-xs font-medium text-warning">Paused</span>}
                   </p>
                 </div>
               </div>
-              <Button size="lg" variant="destructive" onClick={handleStop} disabled={timerLoading} className="rounded-xl px-8">
-                <Square className="h-4 w-4 mr-2" /> Stop
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button size="lg" variant="outline" onClick={isPaused ? resumeTimer : pauseTimer} disabled={timerLoading} className="rounded-xl">
+                  {isPaused ? <><Play className="h-4 w-4 mr-2" /> Resume</> : <><Pause className="h-4 w-4 mr-2" /> Pause</>}
+                </Button>
+                <Button size="lg" variant="destructive" onClick={handleStop} disabled={timerLoading} className="rounded-xl px-8">
+                  <Square className="h-4 w-4 mr-2" /> Stop
+                </Button>
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -293,9 +305,20 @@ function FreelancerDashboard() {
               </div>
             </div>
             <div className="grid grid-cols-2 gap-3">
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className={cn("justify-start text-left font-normal", !manualDate && "text-muted-foreground")}>
+                    <CalendarIcon className="h-4 w-4 mr-2" />
+                    {format(manualDate, "PPP")}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar mode="single" selected={manualDate} onSelect={(d) => d && setManualDate(d)} disabled={(date) => date > new Date()} initialFocus className={cn("p-3 pointer-events-auto")} />
+                </PopoverContent>
+              </Popover>
               <Input type="number" placeholder="Minutes" value={manualDuration} onChange={(e) => setManualDuration(e.target.value)} />
-              <Input placeholder="Description (optional)" value={manualDesc} onChange={(e) => setManualDesc(e.target.value)} />
             </div>
+            <Input placeholder="Description (optional)" value={manualDesc} onChange={(e) => setManualDesc(e.target.value)} />
             <Button onClick={handleManualEntry} disabled={!selectedClient || !selectedProject || !manualDuration} className="rounded-xl">
               Add Entry
             </Button>
