@@ -2,7 +2,7 @@ import { Link, useLocation } from "@tanstack/react-router";
 import { useAuth } from "@/lib/auth";
 import {
   Clock, LayoutDashboard, CalendarDays, FileText, Users, Building2,
-  FolderKanban, LinkIcon, BarChart3, LogOut, ChevronLeft, ChevronRight, Menu, X, Settings
+  FolderKanban, LinkIcon, BarChart3, LogOut, ChevronLeft, ChevronRight, Menu, X, Settings, UsersRound
 } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -15,6 +15,10 @@ const freelancerNav = [
 
 const settingsNav = [
   { to: "/settings", label: "Settings", icon: Settings },
+];
+
+const managerNav = [
+  { to: "/manager", label: "Team Overview", icon: UsersRound },
 ];
 
 const adminNav = [
@@ -34,7 +38,12 @@ export function AppSidebar() {
   const [mobileOpen, setMobileOpen] = useState(false);
 
   const isAdmin = role === "admin";
-  const navItems = isAdmin ? [...freelancerNav, ...adminNav, ...settingsNav] : [...freelancerNav, ...settingsNav];
+  const isManager = role === "manager";
+  const navItems = isAdmin
+    ? [...freelancerNav, ...managerNav, ...adminNav, ...settingsNav]
+    : isManager
+      ? [...freelancerNav, ...managerNav, ...settingsNav]
+      : [...freelancerNav, ...settingsNav];
 
   const sidebar = (
     <div className={`flex flex-col h-full bg-sidebar border-r border-sidebar-border transition-all duration-200 ${collapsed ? "w-16" : "w-60"}`}>
