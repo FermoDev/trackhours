@@ -1,98 +1,109 @@
-## Wire up the Manager role
+## Why role changes silently fail
 
-Right now `manager` exists in the enum but does nothing. Let's make it real: a manager is assigned to one or more **clients**, and for those clients they can see the time entries and stats of every freelancer also assigned to that client.
+I traced the exact problem in the network log:
 
-### Concept
+```
+POST /_serverFn/...adminUpdateUserRole
+Status: 401
+Response: "Unauthorized: No authorization header provided"
+```
+
+Every admin server function (`adminUpdateUserRole`, `adminSetUserStatus`, `adminDeleteUser`, `adminResetPassword`) is protected by `requireSupabaseAuth` middleware, which expects an `Authorization: Bearer <token>` header. But on the client we just call `adminUpdateUserRole({ data: ... })` with no header — TanStack Start's server-fn fetch does NOT auto-attach the Supabase session token.
+
+So: the request leaves the browser with no auth header → middleware rejects with 401 → role never updates → UI silently re-renders the old role. The error isn't even toasted because the catch block on `handleRoleChange` is missing.
+
+### Fix: attach the JWT before each call
+
+Add a tiny helper that grabs the current Supabase session token and merges it into the server-fn `headers` option (TanStack Start supports per-call headers). Then update the four admin call sites to use it.
+
+**New file `src/lib/server-auth.ts`:**
+```ts
+import { supabase } from "@/integrations/supabase/client";
+
+export async function authHeaders() {
+  const { data: { session } } = await supabase.auth.getSession();
+  return session?.access_token
+    ? { Authorization: `Bearer ${session.access_token}` }
+    : {};
+}
+```
+
+**Update `src/routes/_authenticated.admin.users.tsx`:**
+```ts
+const headers = await authHeaders();
+const result = await adminUpdateUserRole({ data: { userId, role }, headers });
+```
+Same pattern for `adminResetPassword`, `adminSetUserStatus`, `adminDeleteUser`. Also add a `catch` that toasts the error so future failures aren't silent.
+
+That single change makes role changes (and reset-password / disable / delete) actually work.
+
+---
+
+## How the manager role works end-to-end (the model)
+
+Think of it as one shared list — `client_assignments` — that powers everything:
 
 ```text
-Client: Orthodent
-  ├── Freelancer: Rafay   (client_assignments)
-  ├── Freelancer: Saad    (client_assignments)
-  └── Manager:   Alizar   (client_assignments + role=manager)
-                  └── sees Rafay's & Saad's time on Orthodent
+client_assignments
+  Alizar  → Orthodent   (role=manager)
+  Rafay   → Orthodent   (role=freelancer)
+  Saad    → Orthodent   (role=freelancer)
 ```
 
-A manager is just a user with `role = 'manager'` who has been assigned to one or more clients via the existing `client_assignments` table. No new assignment table needed — same mechanism admins already use to assign freelancers to clients.
+Anyone (manager or freelancer) on the same client is automatically on the same "team." There is no separate team table.
 
-### Permissions matrix
+### What each role can do (enforced in the database, not the UI)
 
-| Capability | Admin | Manager | Freelancer |
+| Action | Admin | Manager | Freelancer |
 |---|---|---|---|
 | Track own time | yes | yes | yes |
-| See own clients/projects | all | assigned | assigned |
-| Add projects under assigned clients | yes | yes | yes |
-| **See team time entries on their clients** | all | yes (their clients only) | no |
-| **Manager Dashboard (team overview)** | — | yes | no |
-| Manage users / clients / global reports | yes | no | no |
+| See clients/projects | all | only assigned | only assigned |
+| See OWN time entries | yes | yes | yes |
+| See TEAMMATE time entries on shared clients | yes (all) | yes (their clients only) | no |
+| See teammate names/emails | yes | yes (only teammates on shared clients) | no |
+| Manage users / global reports / billing | yes | no | no |
 
-### Database changes
+### Concrete walk-through: Alizar manages Rafay & Saad on Orthodent
 
-**1. Update RLS on `time_entries`** — add a manager-can-read policy:
+1. **Admin sets it up (one-time)**
+   - In Users → set Alizar's role to `manager` (this is what's currently broken — fix above)
+   - In Users → click Alizar's "client assignments" → add **Orthodent**
+   - Make sure Rafay and Saad are also assigned to Orthodent (freelancers)
 
-```sql
-CREATE POLICY "Managers can view team entries on assigned clients"
-ON public.time_entries FOR SELECT
-USING (
-  has_role(auth.uid(), 'manager'::app_role)
-  AND EXISTS (
-    SELECT 1 FROM client_assignments ca
-    WHERE ca.user_id = auth.uid()
-      AND ca.client_id = time_entries.client_id
-  )
-);
-```
+2. **Rafay logs time**
+   - Rafay opens the timer, picks Orthodent → some project, starts/stops
+   - Row written to `time_entries` with `user_id=Rafay, client_id=Orthodent`
 
-**2. Update RLS on `profiles`** — managers need to see names/emails of teammates on their clients (otherwise the team list shows blank names):
+3. **Alizar opens "Team Overview"** (the new `/manager` page)
+   - Page queries `time_entries` with no user_id filter
+   - Postgres RLS evaluates each row:
+     - Alizar's own rows → allowed by "Users can view own entries"
+     - Rafay/Saad rows on Orthodent → allowed by **"Managers can view team entries on assigned clients"** because Alizar has `role=manager` AND `client_assignments(Alizar, Orthodent)` exists
+     - A row from someone on a different client → denied
+   - Same logic for the `profiles` query, which is why Alizar can see Rafay's & Saad's names
 
-```sql
-CREATE POLICY "Managers can view profiles of teammates on shared clients"
-ON public.profiles FOR SELECT
-USING (
-  has_role(auth.uid(), 'manager'::app_role)
-  AND EXISTS (
-    SELECT 1 FROM client_assignments mine
-    JOIN client_assignments theirs ON theirs.client_id = mine.client_id
-    WHERE mine.user_id = auth.uid()
-      AND theirs.user_id = profiles.user_id
-  )
-);
-```
+4. **Alizar does NOT get**
+   - Admin pages (Users, global reports, etc.) — sidebar hides them, and even if URL is typed admin RLS denies
+   - Time entries from clients she isn't assigned to
 
-(Existing policies for clients/projects already work — managers assigned to a client will see that client and its projects via the current `client_assignments`-based policies.)
+### Where this lives in code (already built, just needs the fix above to be reachable)
 
-### New page: Manager Dashboard
+- **DB policies** (already applied):
+  - `time_entries`: "Managers can view team entries on assigned clients"
+  - `profiles`: "Managers can view teammate profiles"
+- **Sidebar** `src/components/AppSidebar.tsx`: shows "Team Overview" for `manager` and `admin`
+- **Guard** `src/routes/_authenticated.manager.tsx`: redirects non-managers to `/dashboard`
+- **Page** `src/routes/_authenticated.manager.index.tsx`: the dashboard with client filter, date range, summary cards, per-teammate breakdown, recent entries
 
-**Route:** `src/routes/_authenticated.manager.tsx` (guard) + `src/routes/_authenticated.manager.index.tsx`
+### Why managers don't need their own timesheet view of teammates
 
-Layout:
-- **Client filter** at top (defaults to "All my clients", dropdown of clients the manager is assigned to).
-- **Date range filter** (this week / this month / custom).
-- **Team summary cards**: total team hours, billable hours, # active members.
-- **Team breakdown table**: per teammate — name, hours this period, last entry, % billable.
-- **Recent entries list**: latest 50 entries from team members on selected client(s), with date, user, project, duration, description.
+The existing **Team Overview** page already shows recent team entries with date, user, project, duration, and description — that IS the team timesheet. If you want a richer per-teammate week-grid view later, that can be added on top of the same RLS without any DB change.
 
-All data fetched client-side via the new RLS — no new server functions needed.
+---
 
-### Sidebar / routing
+## Files touched by this plan
 
-- `src/components/AppSidebar.tsx`: add a `managerNav` group (just "Team Overview" → `/manager`) shown when `role === "manager"`. Admins also see it (since admin sees everything).
-- `src/routes/_authenticated.manager.tsx`: guard that redirects to `/dashboard` unless `role` is `manager` or `admin`.
+- New: `src/lib/server-auth.ts` (5-line helper)
+- Edit: `src/routes/_authenticated.admin.users.tsx` — pass `headers` to all four admin server-fn calls + add error toasts
 
-### Admin UX additions
-
-- **Users page**: when a user has `role = 'manager'`, the existing "Manage client assignments" dialog already does the right thing — admin assigns the manager to clients (e.g. Alizar → Orthodent). No code change needed there beyond a small label tweak ("Assign clients this user can access / manage").
-- **No separate "team membership" concept**: anyone (manager or freelancer) assigned to the same client is automatically on that "team." This keeps the model simple — exactly what you described with Alizar/Rafay/Saad/Orthodent.
-
-### What changes for managers in the rest of the app
-
-- Their own dashboard, timer, timesheet pages keep working unchanged (they're still freelancers for their own time).
-- They get one extra nav item: **Team Overview**, which is the new page above.
-- They do NOT get access to admin pages (users, global reports, etc).
-
-### Files touched
-
-- New migration (RLS policies for `time_entries` and `profiles`)
-- `src/routes/_authenticated.manager.tsx` (new — guard)
-- `src/routes/_authenticated.manager.index.tsx` (new — team overview page)
-- `src/components/AppSidebar.tsx` (add manager nav)
-- `src/routes/_authenticated.admin.users.tsx` (small label tweak in client-assignment dialog so it makes sense for both freelancers and managers)
+No DB changes. No new RLS. The manager backend is already wired up; you just couldn't change anyone TO manager because the role-change request was 401-ing.

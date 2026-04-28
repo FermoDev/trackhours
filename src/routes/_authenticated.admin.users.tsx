@@ -28,6 +28,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useAuth } from "@/lib/auth";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { authHeaders } from "@/lib/server-auth";
 
 export const Route = createFileRoute("/_authenticated/admin/users")({
   component: AdminUsersPage,
@@ -96,14 +97,15 @@ function AdminUsersPage() {
   const handleResetPassword = async (profile: Tables<"profiles">) => {
     setResettingId(profile.id);
     try {
-      const result = await adminResetPassword({ data: { email: profile.email } });
+      const headers = await authHeaders();
+      const result = await adminResetPassword({ data: { email: profile.email }, headers });
       if (result.success) {
         toast.success(`Password reset email sent to ${profile.email}`);
       } else {
         toast.error(result.error || "Failed to send reset email");
       }
-    } catch {
-      toast.error("Failed to send reset email");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to send reset email");
     } finally {
       setResettingId(null);
     }
@@ -112,13 +114,16 @@ function AdminUsersPage() {
   const handleRoleChange = async (userId: string, role: AppRole) => {
     setBusyId(userId);
     try {
-      const result = await adminUpdateUserRole({ data: { userId, role } });
+      const headers = await authHeaders();
+      const result = await adminUpdateUserRole({ data: { userId, role }, headers });
       if (result.success) {
         toast.success(`Role updated to ${role}`);
         await fetchData();
       } else {
         toast.error(result.error || "Failed to update role");
       }
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to update role");
     } finally {
       setBusyId(null);
     }
@@ -128,13 +133,16 @@ function AdminUsersPage() {
     setBusyId(userId);
     const next = currentStatus === "active" ? "inactive" : "active";
     try {
-      const result = await adminSetUserStatus({ data: { userId, status: next } });
+      const headers = await authHeaders();
+      const result = await adminSetUserStatus({ data: { userId, status: next }, headers });
       if (result.success) {
         toast.success(next === "inactive" ? "User disabled" : "User enabled");
         await fetchData();
       } else {
         toast.error(result.error || "Failed to update status");
       }
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to update status");
     } finally {
       setBusyId(null);
     }
@@ -143,13 +151,16 @@ function AdminUsersPage() {
   const handleDelete = async (userId: string) => {
     setBusyId(userId);
     try {
-      const result = await adminDeleteUser({ data: { userId } });
+      const headers = await authHeaders();
+      const result = await adminDeleteUser({ data: { userId }, headers });
       if (result.success) {
         toast.success("User deleted");
         await fetchData();
       } else {
         toast.error(result.error || "Failed to delete user");
       }
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to delete user");
     } finally {
       setBusyId(null);
     }
