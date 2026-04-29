@@ -1,36 +1,42 @@
-## Add ability to delete time log entries
+## What's broken
 
-Users can currently create time logs but there's no way to remove one if added by mistake. The database already permits it (RLS policy "Users can delete own draft entries" allows deleting your own entries while in `draft` status; admins can delete any). We just need UI.
+Your account `sami@fermo.io` IS correctly stored as `admin` in the database — I verified the `user_roles` row. The problem is that the app can't read role information anymore, so every signed-in user falls back to the freelancer view.
 
-### Where to add delete buttons
+## Root cause
 
-1. **Dashboard — "Recent entries" list** (`src/routes/_authenticated.dashboard.tsx`)
-   - Add a small trash icon button next to each entry row (alongside the existing "Continue" button).
-   - Only show it for entries where `status === "draft"` (submitted/approved entries are locked by RLS anyway).
+The recent security-hardening migration revoked `EXECUTE` on the `has_role`, `get_user_role`, and `handle_new_user` functions from the `authenticated` and `anon` roles. The current ACL only grants execute to `postgres`, `service_role`, and `sandbox_exec`.
 
-2. **Timesheet page — entries table** (`src/routes/_authenticated.timesheet.tsx`)
-   - Add a trailing "Actions" column with a trash icon for each draft row.
-   - Keeps parity with the existing checkbox/submit flow.
+The problem: `has_role(auth.uid(), 'admin')` is referenced inside almost every Row-Level Security policy in this project (clients, projects, profiles, time_entries, user_roles, activity_logs, etc.). When a logged-in user runs *any* query, Postgres evaluates those RLS expressions as the `authenticated` role — which no longer has permission to call `has_role`. The policy expression errors or returns false, so:
 
-### Behavior
+- The `user_roles` SELECT for the current user fails / returns nothing → `role` stays `null` in `useAuth` → sidebar and `_authenticated.admin` guard treat the user as a freelancer.
+- The `handle_new_user` trigger (used on signup) can no longer create profile + default role rows.
 
-- Clicking the trash icon opens an `AlertDialog` confirmation ("Delete this time entry? This cannot be undone.") to prevent accidental clicks.
-- On confirm: `supabase.from("time_entries").delete().eq("id", entry.id)`, then refetch the list and show a toast ("Entry deleted").
-- If the delete fails (e.g. entry was already submitted by the time they click), surface the error in a toast.
-- Only render the delete button when `entry.status === "draft"`. Submitted/approved entries should not show the button — users would need to ask an admin.
+That migration was over-aggressive. `SECURITY DEFINER` + a locked `search_path` is what makes these helpers safe — they're *designed* to be called by `authenticated` from inside RLS. Revoking EXECUTE on them breaks the whole authorization model.
 
-### Admin entries page
+## Fix
 
-`src/routes/_authenticated.admin.entries.tsx` already exists for admins. I'll quickly check if it has delete; if not, add the same trash-with-confirm pattern there too (admins can delete entries in any status).
+Add a small migration that restores EXECUTE on these three functions:
 
-### No backend changes needed
+```sql
+GRANT EXECUTE ON FUNCTION public.has_role(uuid, public.app_role) TO authenticated, anon;
+GRANT EXECUTE ON FUNCTION public.get_user_role(uuid) TO authenticated, anon;
+GRANT EXECUTE ON FUNCTION public.handle_new_user() TO authenticated, anon;
+```
 
-The RLS policies already cover this:
-- Users: can delete own `draft` entries
-- Admins: can delete any entry
+(`anon` is included because the auth signup trigger and the unauthenticated landing flow can touch them.)
 
-### Files to edit
+The other security improvements from that migration stay in place:
+- `clients` / `projects` INSERT remains admin-only.
+- The manager profile-leak fix (sanitized teammate fetch via server function) stays.
+- `auto_assign_project_creator` and `update_updated_at_column` permissions are unchanged.
 
-- `src/routes/_authenticated.dashboard.tsx` — trash button on recent entry rows
-- `src/routes/_authenticated.timesheet.tsx` — actions column with trash button
-- `src/routes/_authenticated.admin.entries.tsx` — trash button if missing (will verify first)
+## After applying
+
+- Refresh the app and sign in as `sami@fermo.io`.
+- The sidebar should show the Admin section, and `/admin` should load.
+- Other users keep working at their existing roles.
+- New signups will once again get a `profiles` row + default `freelancer` role created automatically.
+
+## Update security memory
+
+I'll update the security memory to note that `has_role` / `get_user_role` are intentionally callable by `authenticated` (they're `SECURITY DEFINER` with a fixed `search_path`) so a future scan won't try to re-revoke them.
