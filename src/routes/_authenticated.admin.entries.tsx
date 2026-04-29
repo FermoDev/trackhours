@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { CheckCircle, Clock, FileText, Send } from "lucide-react";
 import type { Tables } from "@/integrations/supabase/types";
+import { DeleteEntryButton } from "@/components/DeleteEntryButton";
 
 export const Route = createFileRoute("/_authenticated/admin/entries")({
   component: AdminEntriesPage,
@@ -200,6 +201,7 @@ function AdminEntriesPage() {
                         <CheckCircle className="h-3 w-3 mr-1" />Approve
                       </Button>
                     )}
+                    <DeleteEntryButton entryId={e.id} onDeleted={fetchEntries} />
                   </TableCell>
                 </TableRow>
               ))}
