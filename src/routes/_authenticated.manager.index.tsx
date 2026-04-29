@@ -2,6 +2,8 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
+import { managerListTeammates } from "@/server/manager.functions";
+import { authHeaders } from "@/lib/server-auth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -16,11 +18,13 @@ export const Route = createFileRoute("/_authenticated/manager/")({
 
 type Range = "week" | "month" | "all";
 
+type TeammateProfile = { user_id: string; full_name: string; email: string };
+
 function ManagerOverview() {
   const { user } = useAuth();
   const [clients, setClients] = useState<Tables<"clients">[]>([]);
   const [projects, setProjects] = useState<Tables<"projects">[]>([]);
-  const [profiles, setProfiles] = useState<Tables<"profiles">[]>([]);
+  const [profiles, setProfiles] = useState<TeammateProfile[]>([]);
   const [entries, setEntries] = useState<Tables<"time_entries">[]>([]);
   const [clientFilter, setClientFilter] = useState<string>("all");
   const [range, setRange] = useState<Range>("week");
@@ -65,8 +69,10 @@ function ManagerOverview() {
 
       const entriesRes = await q.limit(500);
 
-      // Profiles of teammates (RLS already restricts to teammates on shared clients).
-      const profilesRes = await supabase.from("profiles").select("*");
+      // Profiles of teammates — fetched via server function which sanitizes
+      // sensitive fields (hourly_rate is never returned).
+      const headers = await authHeaders();
+      const profilesRes = await managerListTeammates({ headers }).catch(() => ({ profiles: [] as TeammateProfile[] }));
 
       // Projects to display project names
       const projectsRes = await supabase.from("projects").select("*");
@@ -74,7 +80,7 @@ function ManagerOverview() {
       if (cancelled) return;
       if (clientsRes.data) setClients(clientsRes.data);
       if (entriesRes.data) setEntries(entriesRes.data);
-      if (profilesRes.data) setProfiles(profilesRes.data);
+      if (profilesRes.profiles) setProfiles(profilesRes.profiles);
       if (projectsRes.data) setProjects(projectsRes.data);
       setLoading(false);
     })();
