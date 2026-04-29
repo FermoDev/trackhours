@@ -18,6 +18,7 @@ import { Play, Square, Clock, Plus, RotateCcw, Zap, Pause, CalendarIcon } from "
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import type { Tables } from "@/integrations/supabase/types";
+import { DeleteEntryButton } from "@/components/DeleteEntryButton";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   component: FreelancerDashboard,
@@ -351,6 +352,9 @@ function FreelancerDashboard() {
                       <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => handleQuickStart(entry.client_id, entry.project_id)} title="Continue">
                         <RotateCcw className="h-3 w-3" />
                       </Button>
+                    )}
+                    {entry.status === "draft" && (
+                      <DeleteEntryButton entryId={entry.id} onDeleted={fetchData} />
                     )}
                   </div>
                 </div>
