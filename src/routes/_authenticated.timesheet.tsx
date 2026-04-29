@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Send, Clock, FileText, CheckCircle } from "lucide-react";
 import type { Tables } from "@/integrations/supabase/types";
+import { DeleteEntryButton } from "@/components/DeleteEntryButton";
 
 export const Route = createFileRoute("/_authenticated/timesheet")({
   component: TimesheetPage,
@@ -185,11 +186,12 @@ function TimesheetPage() {
                 <TableHead>Duration</TableHead>
                 <TableHead className="hidden sm:table-cell">Description</TableHead>
                 <TableHead>Status</TableHead>
+                <TableHead className="w-10"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {entries.length === 0 ? (
-                <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-8">No entries found</TableCell></TableRow>
+                <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground py-8">No entries found</TableCell></TableRow>
               ) : entries.map((entry) => (
                 <TableRow key={entry.id} className="hover:bg-muted/30">
                   <TableCell>
@@ -207,6 +209,11 @@ function TimesheetPage() {
                   <TableCell className="max-w-[200px] truncate text-sm text-muted-foreground hidden sm:table-cell">{entry.description || "—"}</TableCell>
                   <TableCell>
                     <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${entry.status === "approved" ? "bg-success/10 text-success" : entry.status === "submitted" ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"}`}>{entry.status}</span>
+                  </TableCell>
+                  <TableCell>
+                    {entry.status === "draft" && (
+                      <DeleteEntryButton entryId={entry.id} onDeleted={fetchEntries} />
+                    )}
                   </TableCell>
                 </TableRow>
               ))}
