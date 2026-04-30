@@ -10,8 +10,11 @@ import { Plus, Trash2 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import type { Tables } from "@/integrations/supabase/types";
+import { useServerFn } from "@tanstack/react-start";
+import { mergeClients } from "@/server/clients.functions";
 
 export const Route = createFileRoute("/_authenticated/admin/clients")({
   component: AdminClientsPage,
@@ -24,6 +27,10 @@ function AdminClientsPage() {
   const [deleteTarget, setDeleteTarget] = useState<Tables<"clients"> | null>(null);
   const [name, setName] = useState("");
   const [code, setCode] = useState("");
+  const [mergeSource, setMergeSource] = useState<Tables<"clients"> | null>(null);
+  const [mergeTargetId, setMergeTargetId] = useState("");
+  const [merging, setMerging] = useState(false);
+  const mergeClientsFn = useServerFn(mergeClients);
 
   const fetchClients = async () => {
     const [{ data: cData }, { data: pData }] = await Promise.all([
@@ -58,6 +65,21 @@ function AdminClientsPage() {
     if (error) { toast.error("Cannot delete — client may have linked projects or entries"); }
     else { toast.success("Client deleted"); }
     setDeleteTarget(null);
+    fetchClients();
+  };
+
+  const handleMerge = async () => {
+    if (!mergeSource || !mergeTargetId) return;
+    setMerging(true);
+    const result = await mergeClientsFn({ data: { sourceId: mergeSource.id, targetId: mergeTargetId } });
+    setMerging(false);
+    if (!result.success) {
+      toast.error(result.error || "Merge failed");
+      return;
+    }
+    toast.success("Clients merged");
+    setMergeSource(null);
+    setMergeTargetId("");
     fetchClients();
   };
 
@@ -99,6 +121,7 @@ function AdminClientsPage() {
                   <TableCell className="text-right">
                     <div className="flex items-center justify-end gap-1">
                       <Button variant="ghost" size="sm" onClick={() => toggleStatus(c)}>{c.status === "active" ? "Archive" : "Activate"}</Button>
+                      <Button variant="ghost" size="sm" onClick={() => { setMergeSource(c); setMergeTargetId(""); }}>Merge</Button>
                       <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => setDeleteTarget(c)}><Trash2 className="h-3.5 w-3.5" /></Button>
                     </div>
                   </TableCell>
@@ -133,6 +156,30 @@ function AdminClientsPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <Dialog open={!!mergeSource} onOpenChange={(o) => { if (!o) { setMergeSource(null); setMergeTargetId(""); } }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Merge "{mergeSource?.name}" into…</DialogTitle>
+            <DialogDescription>All projects, time entries, and assignments from "{mergeSource?.name}" will be moved to the target client. "{mergeSource?.name}" will then be deleted. This cannot be undone.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <Label>Target client</Label>
+            <Select value={mergeTargetId} onValueChange={setMergeTargetId}>
+              <SelectTrigger><SelectValue placeholder="Select target client" /></SelectTrigger>
+              <SelectContent>
+                {clients.filter(c => c.id !== mergeSource?.id).map(c => (
+                  <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setMergeSource(null); setMergeTargetId(""); }}>Cancel</Button>
+            <Button onClick={handleMerge} disabled={!mergeTargetId || merging} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">{merging ? "Merging…" : "Merge"}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
