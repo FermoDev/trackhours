@@ -71,6 +71,7 @@ export type Database = {
         Row: {
           code: string | null
           created_at: string
+          created_by: string | null
           id: string
           name: string
           status: Database["public"]["Enums"]["entity_status"]
@@ -78,6 +79,7 @@ export type Database = {
         Insert: {
           code?: string | null
           created_at?: string
+          created_by?: string | null
           id?: string
           name: string
           status?: Database["public"]["Enums"]["entity_status"]
@@ -85,6 +87,7 @@ export type Database = {
         Update: {
           code?: string | null
           created_at?: string
+          created_by?: string | null
           id?: string
           name?: string
           status?: Database["public"]["Enums"]["entity_status"]

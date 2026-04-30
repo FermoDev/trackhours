@@ -12,6 +12,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import type { Tables } from "@/integrations/supabase/types";
+import { useServerFn } from "@tanstack/react-start";
+import { mergeProjects } from "@/server/clients.functions";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/admin/projects")({
   validateSearch: (search: Record<string, unknown>): { client?: string } => ({
@@ -31,6 +34,10 @@ function AdminProjectsPage() {
   const [clientId, setClientId] = useState("");
   const [desc, setDesc] = useState("");
   const [billable, setBillable] = useState(true);
+  const [mergeSource, setMergeSource] = useState<(Tables<"projects"> & { clients: { name: string } | null }) | null>(null);
+  const [mergeTargetId, setMergeTargetId] = useState("");
+  const [merging, setMerging] = useState(false);
+  const mergeProjectsFn = useServerFn(mergeProjects);
 
   const fetchProjects = async () => {
     const { data } = await supabase.from("projects").select("*, clients(name)");
@@ -60,6 +67,18 @@ function AdminProjectsPage() {
 
   const toggleStatus = async (project: Tables<"projects">) => {
     await supabase.from("projects").update({ status: project.status === "active" ? "inactive" as const : "active" as const }).eq("id", project.id);
+    fetchProjects();
+  };
+
+  const handleMerge = async () => {
+    if (!mergeSource || !mergeTargetId) return;
+    setMerging(true);
+    const result = await mergeProjectsFn({ data: { sourceId: mergeSource.id, targetId: mergeTargetId } });
+    setMerging(false);
+    if (!result.success) { toast.error(result.error || "Merge failed"); return; }
+    toast.success("Projects merged");
+    setMergeSource(null);
+    setMergeTargetId("");
     fetchProjects();
   };
 
@@ -114,7 +133,12 @@ function AdminProjectsPage() {
                   </TableCell>
                   <TableCell>{p.billable_default ? "Yes" : "No"}</TableCell>
                   <TableCell><Badge variant={p.status === "active" ? "default" : "secondary"}>{p.status}</Badge></TableCell>
-                  <TableCell><Button variant="ghost" size="sm" onClick={() => toggleStatus(p)}>{p.status === "active" ? "Archive" : "Activate"}</Button></TableCell>
+                  <TableCell>
+                    <div className="flex items-center justify-end gap-1">
+                      <Button variant="ghost" size="sm" onClick={() => toggleStatus(p)}>{p.status === "active" ? "Archive" : "Activate"}</Button>
+                      <Button variant="ghost" size="sm" onClick={() => { setMergeSource(p); setMergeTargetId(""); }}>Merge</Button>
+                    </div>
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>
@@ -149,6 +173,30 @@ function AdminProjectsPage() {
             </div>
           </div>
           <DialogFooter><Button onClick={handleAdd} disabled={!name || !clientId}>Add</Button></DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!mergeSource} onOpenChange={(o) => { if (!o) { setMergeSource(null); setMergeTargetId(""); } }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Merge "{mergeSource?.name}" into…</DialogTitle>
+            <DialogDescription>All time entries from "{mergeSource?.name}" will be moved to the target project. "{mergeSource?.name}" will then be deleted. Target must belong to the same client ({mergeSource?.clients?.name}).</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <Label>Target project</Label>
+            <Select value={mergeTargetId} onValueChange={setMergeTargetId}>
+              <SelectTrigger><SelectValue placeholder="Select target project" /></SelectTrigger>
+              <SelectContent>
+                {projects.filter(p => p.id !== mergeSource?.id && p.client_id === mergeSource?.client_id).map(p => (
+                  <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setMergeSource(null); setMergeTargetId(""); }}>Cancel</Button>
+            <Button onClick={handleMerge} disabled={!mergeTargetId || merging} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">{merging ? "Merging…" : "Merge"}</Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
