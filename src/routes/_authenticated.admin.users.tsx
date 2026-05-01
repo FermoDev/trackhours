@@ -368,6 +368,8 @@ function AdminUsersPage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      <UserStatsDialog user={statsUser} open={!!statsUser} onOpenChange={(o) => !o && setStatsUser(null)} />
     </div>
   );
 }
