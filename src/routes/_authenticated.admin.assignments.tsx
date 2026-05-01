@@ -5,7 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2, Loader2 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import type { Tables } from "@/integrations/supabase/types";
@@ -26,6 +26,8 @@ function AdminAssignmentsPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [userId, setUserId] = useState("");
   const [clientId, setClientId] = useState("");
+  const [adding, setAdding] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const fetchAssignments = async () => {
     const { data } = await supabase.from("client_assignments").select("*").order("assigned_at", { ascending: false });
@@ -51,14 +53,18 @@ function AdminAssignmentsPage() {
 
   const handleAdd = async () => {
     if (!userId || !clientId) return;
+    setAdding(true);
     await supabase.from("client_assignments").insert({ user_id: userId, client_id: clientId });
     setUserId(""); setClientId(""); setDialogOpen(false);
-    fetchAssignments();
+    await fetchAssignments();
+    setAdding(false);
   };
 
   const handleDelete = async (id: string) => {
+    setDeletingId(id);
     await supabase.from("client_assignments").delete().eq("id", id);
-    fetchAssignments();
+    await fetchAssignments();
+    setDeletingId(null);
   };
 
   return (
@@ -84,7 +90,11 @@ function AdminAssignmentsPage() {
                   <TableCell>{a.profileName || "—"}</TableCell>
                   <TableCell>{a.clientName || "—"}</TableCell>
                   <TableCell className="text-sm text-muted-foreground">{a.assigned_at.slice(0, 10)}</TableCell>
-                  <TableCell><Button variant="ghost" size="sm" onClick={() => handleDelete(a.id)}><Trash2 className="h-4 w-4" /></Button></TableCell>
+                  <TableCell>
+                    <Button variant="ghost" size="sm" disabled={deletingId === a.id} onClick={() => handleDelete(a.id)}>
+                      {deletingId === a.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                    </Button>
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>
@@ -113,7 +123,12 @@ function AdminAssignmentsPage() {
               </Select>
             </div>
           </div>
-          <DialogFooter><Button onClick={handleAdd} disabled={!userId || !clientId}>Assign</Button></DialogFooter>
+          <DialogFooter>
+            <Button onClick={handleAdd} disabled={!userId || !clientId || adding}>
+              {adding && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              {adding ? "Assigning…" : "Assign"}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

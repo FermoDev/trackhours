@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Send, Clock, FileText, CheckCircle } from "lucide-react";
+import { Send, Clock, FileText, CheckCircle, Loader2 } from "lucide-react";
 import type { Tables } from "@/integrations/supabase/types";
 import { DeleteEntryButton } from "@/components/DeleteEntryButton";
 
@@ -33,6 +33,7 @@ function TimesheetPage() {
   const [filterDateFrom, setFilterDateFrom] = useState("");
   const [filterDateTo, setFilterDateTo] = useState("");
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [submitting, setSubmitting] = useState(false);
 
   const fetchEntries = useCallback(async () => {
     if (!user) return;
@@ -71,9 +72,11 @@ function TimesheetPage() {
   const submitSelected = async () => {
     const ids = Array.from(selected);
     if (ids.length === 0) return;
+    setSubmitting(true);
     await supabase.from("time_entries").update({ status: "submitted" as const }).in("id", ids);
     setSelected(new Set());
-    fetchEntries();
+    await fetchEntries();
+    setSubmitting(false);
   };
 
   const totalMinutes = entries.reduce((s, e) => s + (e.duration_minutes || 0), 0);
@@ -96,8 +99,9 @@ function TimesheetPage() {
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold tracking-tight">Timesheet</h1>
         {selected.size > 0 && (
-          <Button onClick={submitSelected} className="rounded-xl">
-            <Send className="h-4 w-4 mr-2" /> Submit {selected.size} entries
+          <Button onClick={submitSelected} disabled={submitting} className="rounded-xl">
+            {submitting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Send className="h-4 w-4 mr-2" />}
+            Submit {selected.size} entries
           </Button>
         )}
       </div>

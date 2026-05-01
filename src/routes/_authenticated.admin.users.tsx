@@ -29,6 +29,8 @@ import {
 import { useAuth } from "@/lib/auth";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { authHeaders } from "@/lib/server-auth";
+import { UserStatsDialog } from "@/components/UserStatsDialog";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export const Route = createFileRoute("/_authenticated/admin/users")({
   component: AdminUsersPage,
@@ -39,14 +41,17 @@ type AppRole = "admin" | "freelancer" | "manager";
 function AdminUsersPage() {
   const { user } = useAuth();
   const [profiles, setProfiles] = useState<(Tables<"profiles"> & { role: AppRole })[]>([]);
+  const [profilesLoading, setProfilesLoading] = useState(true);
   const [resettingId, setResettingId] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [clientDialogUser, setClientDialogUser] = useState<(Tables<"profiles"> & { role: AppRole }) | null>(null);
   const [userClients, setUserClients] = useState<Tables<"client_assignments">[]>([]);
   const [allClients, setAllClients] = useState<Tables<"clients">[]>([]);
   const [addingClientId, setAddingClientId] = useState("");
+  const [statsUser, setStatsUser] = useState<(Tables<"profiles"> & { role: AppRole }) | null>(null);
 
   const fetchData = useCallback(async () => {
+    setProfilesLoading(true);
     const [profRes, rolesRes] = await Promise.all([
       supabase.from("profiles").select("*"),
       supabase.from("user_roles").select("*"),
@@ -65,6 +70,7 @@ function AdminUsersPage() {
       });
       setProfiles(merged);
     }
+    setProfilesLoading(false);
   }, []);
 
   useEffect(() => { fetchData(); }, [fetchData]);
@@ -183,13 +189,30 @@ function AdminUsersPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {profiles.map(p => {
+              {profilesLoading && profiles.length === 0 ? (
+                Array.from({ length: 4 }).map((_, i) => (
+                  <TableRow key={`sk-${i}`}>
+                    <TableCell><Skeleton className="h-4 w-32" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-44" /></TableCell>
+                    <TableCell><Skeleton className="h-7 w-28" /></TableCell>
+                    <TableCell><Skeleton className="h-5 w-16" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-16" /></TableCell>
+                    <TableCell><Skeleton className="h-7 w-32 ml-auto" /></TableCell>
+                  </TableRow>
+                ))
+              ) : profiles.map(p => {
                 const isSelf = p.user_id === user?.id;
                 const isBusy = busyId === p.user_id;
                 return (
                   <TableRow key={p.id}>
                     <TableCell className="font-medium">
-                      {p.full_name || "—"}
+                      <button
+                        onClick={() => setStatsUser(p)}
+                        className="text-left hover:underline hover:text-primary transition-colors"
+                        title="View activity"
+                      >
+                        {p.full_name || p.email || "—"}
+                      </button>
                       {isSelf && <span className="ml-2 text-xs text-muted-foreground">(you)</span>}
                     </TableCell>
                     <TableCell>{p.email}</TableCell>
@@ -345,6 +368,8 @@ function AdminUsersPage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      <UserStatsDialog user={statsUser} open={!!statsUser} onOpenChange={(o) => !o && setStatsUser(null)} />
     </div>
   );
 }

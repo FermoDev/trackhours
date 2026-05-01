@@ -1,7 +1,7 @@
 import { useTimer } from "@/hooks/use-timer";
 import { formatTimerDisplay } from "@/lib/format";
 import { Button } from "@/components/ui/button";
-import { Square, Clock, Pause, Play } from "lucide-react";
+import { Square, Clock, Pause, Play, Loader2 } from "lucide-react";
 
 export function StickyTimer() {
   const { activeEntry, elapsed, stopTimer, isPaused, pauseTimer, resumeTimer, isLoading } = useTimer();
@@ -32,7 +32,14 @@ export function StickyTimer() {
           disabled={isLoading}
           className="rounded-xl shrink-0"
         >
-          {isPaused ? <><Play className="h-3 w-3 mr-1" /> Resume</> : <><Pause className="h-3 w-3 mr-1" /> Pause</>}
+          {isLoading ? (
+            <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+          ) : isPaused ? (
+            <Play className="h-3 w-3 mr-1" />
+          ) : (
+            <Pause className="h-3 w-3 mr-1" />
+          )}
+          {isPaused ? "Resume" : "Pause"}
         </Button>
         <Button
           size="sm"
@@ -41,7 +48,8 @@ export function StickyTimer() {
           disabled={isLoading}
           className="rounded-xl shrink-0"
         >
-          <Square className="h-3 w-3 mr-1" /> Stop
+          {isLoading ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Square className="h-3 w-3 mr-1" />}
+          Stop
         </Button>
       </div>
     </div>

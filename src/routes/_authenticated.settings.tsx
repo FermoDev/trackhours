@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { Link } from "@tanstack/react-router";
-import { Building2, FolderKanban } from "lucide-react";
+import { Building2, FolderKanban, Loader2 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/settings")({
   component: SettingsPage,
@@ -71,6 +71,7 @@ function SettingsPage() {
             <Input id="rate" type="number" value={hourlyRate} onChange={(e) => setHourlyRate(e.target.value)} placeholder="0.00" />
           </div>
           <Button onClick={handleSave} disabled={saving} className="rounded-xl">
+            {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
             {saving ? "Saving…" : "Save changes"}
           </Button>
         </CardContent>

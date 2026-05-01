@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Trash2 } from "lucide-react";
+import { Trash2, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   AlertDialog,
@@ -74,6 +74,7 @@ export function DeleteEntryButton({ entryId, onDeleted, size = "icon", className
             disabled={loading}
             className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
           >
+            {loading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
             {loading ? "Deleting..." : "Delete"}
           </AlertDialogAction>
         </AlertDialogFooter>

@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2, Loader2 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
@@ -30,6 +30,9 @@ function AdminClientsPage() {
   const [mergeSource, setMergeSource] = useState<Tables<"clients"> | null>(null);
   const [mergeTargetId, setMergeTargetId] = useState("");
   const [merging, setMerging] = useState(false);
+  const [adding, setAdding] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [togglingId, setTogglingId] = useState<string | null>(null);
   const mergeClientsFn = useServerFn(mergeClients);
 
   const fetchClients = async () => {
@@ -49,23 +52,29 @@ function AdminClientsPage() {
 
   const handleAdd = async () => {
     if (!name) return;
+    setAdding(true);
     await supabase.from("clients").insert({ name, code: code || null });
     setName(""); setCode(""); setDialogOpen(false);
-    fetchClients();
+    await fetchClients();
+    setAdding(false);
   };
 
   const toggleStatus = async (client: Tables<"clients">) => {
+    setTogglingId(client.id);
     await supabase.from("clients").update({ status: client.status === "active" ? "inactive" as const : "active" as const }).eq("id", client.id);
-    fetchClients();
+    await fetchClients();
+    setTogglingId(null);
   };
 
   const handleDelete = async () => {
     if (!deleteTarget) return;
+    setDeleting(true);
     const { error } = await supabase.from("clients").delete().eq("id", deleteTarget.id);
     if (error) { toast.error("Cannot delete — client may have linked projects or entries"); }
     else { toast.success("Client deleted"); }
     setDeleteTarget(null);
-    fetchClients();
+    await fetchClients();
+    setDeleting(false);
   };
 
   const handleMerge = async () => {
@@ -121,6 +130,7 @@ function AdminClientsPage() {
                   <TableCell className="text-right">
                     <div className="flex items-center justify-end gap-1">
                       <Button variant="ghost" size="sm" onClick={() => toggleStatus(c)}>{c.status === "active" ? "Archive" : "Activate"}</Button>
+                      {togglingId === c.id && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
                       <Button variant="ghost" size="sm" onClick={() => { setMergeSource(c); setMergeTargetId(""); }}>Merge</Button>
                       <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => setDeleteTarget(c)}><Trash2 className="h-3.5 w-3.5" /></Button>
                     </div>
@@ -141,7 +151,12 @@ function AdminClientsPage() {
             <div><Label>Name</Label><Input value={name} onChange={e => setName(e.target.value)} /></div>
             <div><Label>Code (optional)</Label><Input value={code} onChange={e => setCode(e.target.value)} /></div>
           </div>
-          <DialogFooter><Button onClick={handleAdd} disabled={!name}>Add</Button></DialogFooter>
+          <DialogFooter>
+            <Button onClick={handleAdd} disabled={!name || adding}>
+              {adding && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              {adding ? "Adding…" : "Add"}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
       <AlertDialog open={!!deleteTarget} onOpenChange={(o) => { if (!o) setDeleteTarget(null); }}>
@@ -152,7 +167,10 @@ function AdminClientsPage() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Delete</AlertDialogAction>
+            <AlertDialogAction onClick={handleDelete} disabled={deleting} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              {deleting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              {deleting ? "Deleting…" : "Delete"}
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
@@ -176,7 +194,10 @@ function AdminClientsPage() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => { setMergeSource(null); setMergeTargetId(""); }}>Cancel</Button>
-            <Button onClick={handleMerge} disabled={!mergeTargetId || merging} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">{merging ? "Merging…" : "Merge"}</Button>
+            <Button onClick={handleMerge} disabled={!mergeTargetId || merging} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              {merging && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              {merging ? "Merging…" : "Merge"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
