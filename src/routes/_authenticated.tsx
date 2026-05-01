@@ -3,6 +3,7 @@ import { useAuth } from "@/lib/auth";
 import { useTimer } from "@/hooks/use-timer";
 import { AppSidebar } from "@/components/AppSidebar";
 import { useEffect } from "react";
+import { Loader2 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated")({
   component: AuthenticatedLayout,
@@ -22,7 +23,7 @@ function AuthenticatedLayout() {
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="animate-pulse text-muted-foreground">Loading...</div>
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
       </div>
     );
   }
