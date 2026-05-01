@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, Loader2 } from "lucide-react";
 import { startOfWeek, addDays, format, subWeeks, addWeeks, isWeekend } from "date-fns";
 import type { Tables } from "@/integrations/supabase/types";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -32,6 +32,7 @@ function WeeklyView() {
   const [dialogClient, setDialogClient] = useState("");
   const [dialogMinutes, setDialogMinutes] = useState("");
   const [dialogDesc, setDialogDesc] = useState("");
+  const [savingEntry, setSavingEntry] = useState(false);
 
   const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
 
@@ -69,6 +70,7 @@ function WeeklyView() {
 
   const saveEntry = async () => {
     if (!user || !dialogClient || !dialogProject || !dialogMinutes) return;
+    setSavingEntry(true);
     await supabase.from("time_entries").insert({
       user_id: user.id,
       client_id: dialogClient,
@@ -81,7 +83,8 @@ function WeeklyView() {
       status: "draft" as const,
     });
     setDialogOpen(false);
-    fetchData();
+    await fetchData();
+    setSavingEntry(false);
   };
 
   const filteredProjects = dialogClient ? projects.filter(p => p.client_id === dialogClient) : projects;
@@ -248,7 +251,10 @@ function WeeklyView() {
             <Input placeholder="Description (optional)" value={dialogDesc} onChange={e => setDialogDesc(e.target.value)} />
           </div>
           <DialogFooter>
-            <Button onClick={saveEntry} disabled={!dialogClient || !dialogProject || !dialogMinutes}>Save</Button>
+            <Button onClick={saveEntry} disabled={!dialogClient || !dialogProject || !dialogMinutes || savingEntry}>
+              {savingEntry && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              {savingEntry ? "Saving…" : "Save"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

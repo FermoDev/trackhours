@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { CheckCircle, Clock, FileText, Send } from "lucide-react";
+import { CheckCircle, Clock, FileText, Send, Loader2 } from "lucide-react";
 import type { Tables } from "@/integrations/supabase/types";
 import { DeleteEntryButton } from "@/components/DeleteEntryButton";
 
@@ -30,6 +30,8 @@ function AdminEntriesPage() {
   const [filterDateFrom, setFilterDateFrom] = useState("");
   const [filterDateTo, setFilterDateTo] = useState("");
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [bulkApproving, setBulkApproving] = useState(false);
+  const [approvingId, setApprovingId] = useState<string | null>(null);
 
   const fetchEntries = useCallback(async () => {
     let q = supabase.from("time_entries").select("*, clients(name), projects(name)").order("entry_date", { ascending: false }).limit(200);
@@ -71,14 +73,18 @@ function AdminEntriesPage() {
   const bulkApprove = async () => {
     const ids = Array.from(selected);
     if (ids.length === 0) return;
+    setBulkApproving(true);
     await supabase.from("time_entries").update({ status: "approved" as const }).in("id", ids);
     setSelected(new Set());
-    fetchEntries();
+    await fetchEntries();
+    setBulkApproving(false);
   };
 
   const approveEntry = async (id: string) => {
+    setApprovingId(id);
     await supabase.from("time_entries").update({ status: "approved" as const }).eq("id", id);
-    fetchEntries();
+    await fetchEntries();
+    setApprovingId(null);
   };
 
   const totalMinutes = entries.reduce((s, e) => s + (e.duration_minutes || 0), 0);
@@ -98,8 +104,9 @@ function AdminEntriesPage() {
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold tracking-tight">All Time Entries</h1>
         {selected.size > 0 && (
-          <Button onClick={bulkApprove} className="rounded-xl">
-            <CheckCircle className="h-4 w-4 mr-2" /> Approve {selected.size} entries
+          <Button onClick={bulkApprove} disabled={bulkApproving} className="rounded-xl">
+            {bulkApproving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <CheckCircle className="h-4 w-4 mr-2" />}
+            Approve {selected.size} entries
           </Button>
         )}
       </div>
@@ -197,8 +204,9 @@ function AdminEntriesPage() {
                   </TableCell>
                   <TableCell>
                     {e.status === "submitted" && (
-                      <Button size="sm" variant="ghost" onClick={() => approveEntry(e.id)} className="text-xs">
-                        <CheckCircle className="h-3 w-3 mr-1" />Approve
+                      <Button size="sm" variant="ghost" disabled={approvingId === e.id} onClick={() => approveEntry(e.id)} className="text-xs">
+                        {approvingId === e.id ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <CheckCircle className="h-3 w-3 mr-1" />}
+                        Approve
                       </Button>
                     )}
                     <DeleteEntryButton entryId={e.id} onDeleted={fetchEntries} />

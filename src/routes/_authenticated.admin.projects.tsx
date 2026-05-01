@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus } from "lucide-react";
+import { Plus, Loader2 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -37,6 +37,7 @@ function AdminProjectsPage() {
   const [mergeSource, setMergeSource] = useState<(Tables<"projects"> & { clients: { name: string } | null }) | null>(null);
   const [mergeTargetId, setMergeTargetId] = useState("");
   const [merging, setMerging] = useState(false);
+  const [adding, setAdding] = useState(false);
   const mergeProjectsFn = useServerFn(mergeProjects);
 
   const fetchProjects = async () => {
@@ -60,9 +61,11 @@ function AdminProjectsPage() {
 
   const handleAdd = async () => {
     if (!name || !clientId) return;
+    setAdding(true);
     await supabase.from("projects").insert({ name, client_id: clientId, description: desc || null, billable_default: billable });
     setName(""); setClientId(""); setDesc(""); setBillable(true); setDialogOpen(false);
-    fetchProjects();
+    await fetchProjects();
+    setAdding(false);
   };
 
   const toggleStatus = async (project: Tables<"projects">) => {
@@ -172,7 +175,12 @@ function AdminProjectsPage() {
               <Label htmlFor="billable">Billable by default</Label>
             </div>
           </div>
-          <DialogFooter><Button onClick={handleAdd} disabled={!name || !clientId}>Add</Button></DialogFooter>
+          <DialogFooter>
+            <Button onClick={handleAdd} disabled={!name || !clientId || adding}>
+              {adding && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              {adding ? "Adding…" : "Add"}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
@@ -195,7 +203,10 @@ function AdminProjectsPage() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => { setMergeSource(null); setMergeTargetId(""); }}>Cancel</Button>
-            <Button onClick={handleMerge} disabled={!mergeTargetId || merging} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">{merging ? "Merging…" : "Merge"}</Button>
+            <Button onClick={handleMerge} disabled={!mergeTargetId || merging} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              {merging && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              {merging ? "Merging…" : "Merge"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
