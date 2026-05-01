@@ -14,7 +14,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar } from "@/components/ui/calendar";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { Play, Square, Clock, Plus, RotateCcw, Zap, Pause, CalendarIcon } from "lucide-react";
+import { Play, Square, Clock, Plus, RotateCcw, Zap, Pause, CalendarIcon, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import type { Tables } from "@/integrations/supabase/types";
@@ -47,6 +47,8 @@ function FreelancerDashboard() {
   const [newClientName, setNewClientName] = useState("");
   const [savingClient, setSavingClient] = useState(false);
   const [savingProject, setSavingProject] = useState(false);
+  const [submittingManual, setSubmittingManual] = useState(false);
+  const [pendingQuickStart, setPendingQuickStart] = useState<string | null>(null);
 
   const findOrCreateClientFn = useServerFn(findOrCreateClient);
   const findOrCreateProjectFn = useServerFn(findOrCreateProject);
@@ -116,6 +118,7 @@ function FreelancerDashboard() {
     if (!user || !selectedClient || !selectedProject || !manualDuration) return;
     const mins = parseInt(manualDuration);
     if (isNaN(mins) || mins <= 0) return;
+    setSubmittingManual(true);
     await supabase.from("time_entries").insert({
       user_id: user.id,
       client_id: selectedClient,
@@ -131,11 +134,18 @@ function FreelancerDashboard() {
     setManualDesc("");
     setShowManual(false);
     setManualDate(new Date());
-    fetchData();
+    await fetchData();
+    setSubmittingManual(false);
   };
 
   const handleQuickStart = async (clientId: string, projectId: string) => {
-    await startTimer(clientId, projectId);
+    const key = `${clientId}:${projectId}`;
+    setPendingQuickStart(key);
+    try {
+      await startTimer(clientId, projectId);
+    } finally {
+      setPendingQuickStart(null);
+    }
   };
 
   const handleAddProject = async () => {
@@ -227,7 +237,11 @@ function FreelancerDashboard() {
                       disabled={timerLoading}
                       onClick={() => handleQuickStart(rp.clientId, rp.projectId)}
                     >
-                      <Play className="h-3 w-3 mr-1.5" />
+                      {pendingQuickStart === `${rp.clientId}:${rp.projectId}` ? (
+                        <Loader2 className="h-3 w-3 mr-1.5 animate-spin" />
+                      ) : (
+                        <Play className="h-3 w-3 mr-1.5" />
+                      )}
                       {rp.projectName}
                       <span className="text-xs opacity-70 ml-1">· {rp.clientName}</span>
                     </Button>
@@ -266,10 +280,18 @@ function FreelancerDashboard() {
               </div>
               <div className="flex items-center gap-2">
                 <Button size="lg" variant="outline" onClick={isPaused ? resumeTimer : pauseTimer} disabled={timerLoading} className="rounded-xl">
-                  {isPaused ? <><Play className="h-4 w-4 mr-2" /> Resume</> : <><Pause className="h-4 w-4 mr-2" /> Pause</>}
+                  {timerLoading ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : isPaused ? (
+                    <><Play className="h-4 w-4 mr-2" /> Resume</>
+                  ) : (
+                    <><Pause className="h-4 w-4 mr-2" /> Pause</>
+                  )}
+                  {timerLoading && (isPaused ? "Resume" : "Pause")}
                 </Button>
                 <Button size="lg" variant="destructive" onClick={handleStop} disabled={timerLoading} className="rounded-xl px-8">
-                  <Square className="h-4 w-4 mr-2" /> Stop
+                  {timerLoading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Square className="h-4 w-4 mr-2" />}
+                  Stop
                 </Button>
               </div>
             </div>
@@ -307,7 +329,8 @@ function FreelancerDashboard() {
               </div>
             </div>
             <Button onClick={handleStart} disabled={!selectedClient || !selectedProject || timerLoading} className="rounded-xl">
-              <Play className="h-4 w-4 mr-2" /> Start Timer
+              {timerLoading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Play className="h-4 w-4 mr-2" />}
+              Start Timer
             </Button>
           </CardContent>
         </Card>
@@ -357,8 +380,9 @@ function FreelancerDashboard() {
               <Input type="number" placeholder="Minutes" value={manualDuration} onChange={(e) => setManualDuration(e.target.value)} />
             </div>
             <Input placeholder="Description (optional)" value={manualDesc} onChange={(e) => setManualDesc(e.target.value)} />
-            <Button onClick={handleManualEntry} disabled={!selectedClient || !selectedProject || !manualDuration} className="rounded-xl">
-              Add Entry
+            <Button onClick={handleManualEntry} disabled={!selectedClient || !selectedProject || !manualDuration || submittingManual} className="rounded-xl">
+              {submittingManual && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              {submittingManual ? "Adding…" : "Add Entry"}
             </Button>
           </CardContent>
         </Card>
@@ -413,7 +437,12 @@ function FreelancerDashboard() {
             <Input value={newProjectName} onChange={e => setNewProjectName(e.target.value)} placeholder="e.g. Website Redesign" />
             <p className="text-xs text-muted-foreground">Will be added to the currently selected client. If a project with this name already exists, you'll join it.</p>
           </div>
-          <DialogFooter><Button onClick={handleAddProject} disabled={!newProjectName.trim() || savingProject}>{savingProject ? "Saving…" : "Add"}</Button></DialogFooter>
+          <DialogFooter>
+            <Button onClick={handleAddProject} disabled={!newProjectName.trim() || savingProject}>
+              {savingProject && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              {savingProject ? "Saving…" : "Add"}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
@@ -429,7 +458,12 @@ function FreelancerDashboard() {
             <Input value={newClientName} onChange={e => setNewClientName(e.target.value)} placeholder="e.g. Acme Inc" autoFocus />
             <p className="text-xs text-muted-foreground">If a client with this name already exists, you'll join it.</p>
           </div>
-          <DialogFooter><Button onClick={handleAddClient} disabled={!newClientName.trim() || savingClient}>{savingClient ? "Saving…" : "Add"}</Button></DialogFooter>
+          <DialogFooter>
+            <Button onClick={handleAddClient} disabled={!newClientName.trim() || savingClient}>
+              {savingClient && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              {savingClient ? "Saving…" : "Add"}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
