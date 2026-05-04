@@ -109,20 +109,6 @@ export function UserStatsDialog({
               ))}
             </div>
 
-            {stats.billableValue !== null && (
-              <Card>
-                <CardContent className="pt-4 pb-3 flex items-center justify-between">
-                  <div>
-                    <p className="text-xs text-muted-foreground">Estimated billable value (all time)</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      {formatDuration(stats.totals.billableMinutes)} billable × ${stats.hourlyRate}/hr
-                    </p>
-                  </div>
-                  <p className="text-xl font-bold font-mono">${stats.billableValue.toLocaleString()}</p>
-                </CardContent>
-              </Card>
-            )}
-
             <div className="grid sm:grid-cols-2 gap-4">
               <Card>
                 <CardContent className="pt-4 pb-3">
