@@ -25,8 +25,6 @@ interface Stats {
     clientName: string;
     projectName: string;
   }[];
-  billableValue: number | null;
-  hourlyRate: number | null;
 }
 
 export function UserStatsDialog({
@@ -78,9 +76,6 @@ export function UserStatsDialog({
               {user?.role && <Badge variant="outline">{user.role}</Badge>}
               {user?.status && (
                 <Badge variant={user.status === "active" ? "default" : "secondary"}>{user.status}</Badge>
-              )}
-              {user?.hourly_rate && (
-                <span className="text-xs text-muted-foreground">${user.hourly_rate}/hr</span>
               )}
             </span>
           </DialogDescription>
