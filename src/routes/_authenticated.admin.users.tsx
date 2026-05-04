@@ -184,7 +184,6 @@ function AdminUsersPage() {
                 <TableHead>Email</TableHead>
                 <TableHead>Role</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead>Hourly Rate</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -196,7 +195,6 @@ function AdminUsersPage() {
                     <TableCell><Skeleton className="h-4 w-44" /></TableCell>
                     <TableCell><Skeleton className="h-7 w-28" /></TableCell>
                     <TableCell><Skeleton className="h-5 w-16" /></TableCell>
-                    <TableCell><Skeleton className="h-4 w-16" /></TableCell>
                     <TableCell><Skeleton className="h-7 w-32 ml-auto" /></TableCell>
                   </TableRow>
                 ))
@@ -237,7 +235,6 @@ function AdminUsersPage() {
                         {p.status}
                       </Badge>
                     </TableCell>
-                    <TableCell>{p.hourly_rate ? `$${p.hourly_rate}/hr` : "—"}</TableCell>
                     <TableCell>
                       <div className="flex items-center justify-end gap-1">
                         <Button
