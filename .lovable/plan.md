@@ -1,101 +1,77 @@
-## Goals
+# Settings overhaul: remove hourly rate, add password change + more
 
-1. Add consistent loading indicators across the entire app so users never wonder if an action is in progress.
-2. On the Admin → Users page, make each user's name clickable to open a stats modal showing their time totals, top projects, and recent activity.
+## 1. Remove hourly rate completely
 
----
+Hourly rate is currently stored on `profiles.hourly_rate` and shown in:
+- Settings page (input field)
+- Admin Users table (a "Rate" column)
+- User Stats dialog (badge in header + "Estimated billable value" card)
+- `getUserStats` server function (calculates billable value)
 
-## Part 1 — Loading indicators (everywhere)
+### Changes
 
-Apply one consistent pattern using `Loader2` from `lucide-react`:
+**Database (migration):**
+- Drop the `hourly_rate` column from `public.profiles`.
 
-```tsx
-<Button onClick={handle} disabled={loading || invalid}>
-  {loading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-  {loading ? "Signing in…" : "Sign in"}
-</Button>
-```
+**UI/code cleanup:**
+- `src/routes/_authenticated.settings.tsx` — remove the Hourly rate input, state, and from the save payload.
+- `src/routes/_authenticated.admin.users.tsx` — remove the "Rate" column from the table header and rows.
+- `src/components/UserStatsDialog.tsx` — remove the `$X/hr` badge and the entire "Estimated billable value" card; drop `billableValue` / `hourlyRate` from the `Stats` type.
+- `src/server/admin.functions.ts` (`getUserStats`) — stop selecting `hourly_rate` and stop returning `billableValue` / `hourlyRate` (still return billable minutes if useful, but no $ value).
+- Comments in `src/server/manager.functions.ts` and `src/routes/_authenticated.manager.index.tsx` referencing hourly_rate get cleaned up.
+- `src/integrations/supabase/types.ts` regenerates automatically after the migration.
 
-For data-heavy pages, replace empty states with the existing `Skeleton` component while data is loading.
+## 2. Expand the Settings page
 
-### Auth pages (highest priority — direct user complaint)
-- `src/routes/login.tsx` — add `Loader2` spinner inside the "Sign in" button.
-- `src/routes/signup.tsx` — spinner on "Create account".
-- `src/routes/forgot-password.tsx` — spinner on "Send reset link".
-- `src/routes/reset-password.tsx` — spinner on "Update password".
+Settings becomes a tabbed/sectioned page with the following groups:
 
-### Dashboard (`_authenticated.dashboard.tsx`)
-- Start / Stop / Pause / Resume timer buttons: spinner when `timerLoading` is true (currently only disabled, no visual feedback).
-- "Add entry" (manual): add `submitting` state + spinner.
-- Quick-start tiles in recent projects: per-tile pending state with spinner on the clicked one.
-- Add Client / Add Project dialog buttons: spinner icon next to existing "Saving…" text.
+### A. Profile (existing, simplified)
+- Email (read-only).
+- Full name (editable).
+- Save button with loading state (already present).
 
-### Timesheet / Weekly / Settings
-- `_authenticated.timesheet.tsx` — "Submit selected" gets `submitting` state + spinner; skeleton rows while entries fetch.
-- `_authenticated.weekly.tsx` — Save dialog button + spinner; skeleton week grid on load.
-- `_authenticated.settings.tsx` — spinner icon on "Save" (text already exists).
+### B. Change password (NEW)
+- Current password + New password + Confirm new password.
+- Flow: re-authenticate by calling `supabase.auth.signInWithPassword` using the user's current email + entered current password. On success, call `supabase.auth.updateUser({ password: newPassword })`.
+- Validate: new password ≥ 8 chars, matches confirm. Show success/error toast. Loader on submit, disabled while submitting.
+- "Forgot current password?" link → existing `/forgot-password` route.
 
-### Admin pages
-- `_authenticated.admin.users.tsx` — already has busy spinners on row actions; add page-load skeleton rows.
-- `_authenticated.admin.clients.tsx` — Add / Save / Merge / Archive / Delete buttons get spinners.
-- `_authenticated.admin.projects.tsx` — spinner icon on existing `merging`; `saving` state on "Add" button.
-- `_authenticated.admin.assignments.tsx` — Assign / Delete buttons spinner; loading state for table.
-- `_authenticated.admin.entries.tsx` — Bulk approve / single approve / delete buttons spinner; skeleton table on load.
-- `_authenticated.admin.reports.tsx` — Export CSV spinner while building file; loading state for filtered query.
-- `_authenticated.admin.index.tsx` — `Skeleton` cards instead of "0 0 0 0" flash while stats load.
-- `_authenticated.manager.index.tsx` — replace plain "Loading…" with `Loader2` + skeleton stat cards.
+### C. Preferences (NEW, lightweight, stored on `profiles`)
+Add small, genuinely useful per-user preferences:
+- **Default billable** — when starting a new timer / manual entry, prefill billable on/off. (Switch)
+- **Week starts on** — Monday vs Sunday. Used by the Weekly view. (Select)
+- **Time format** — 12h vs 24h for display. (Select)
 
-### Shared
-- `src/components/StickyTimer.tsx` — spinner on the Stop button.
-- `src/components/DeleteEntryButton.tsx` — ensure spinner icon during delete.
-- `src/routes/_authenticated.tsx` — replace plain "Loading…" with a centered `Loader2` for visual polish.
+These three columns get added to `profiles` via the same migration:
+- `default_billable boolean not null default true`
+- `week_start_day smallint not null default 1` (0 = Sunday, 1 = Monday)
+- `time_format text not null default '24h'` (check: `'12h' | '24h'`)
 
-### Implementation notes (technical)
-- Use `Loader2` with `className="h-4 w-4 mr-2 animate-spin"` (or `h-3 w-3` in compact buttons).
-- Always pair with `disabled={loading}` to prevent double-submit.
-- For per-row async actions, track `pendingId: string | null` rather than a global flag so only the clicked row spins.
-- Reuse `src/components/ui/skeleton.tsx` for placeholders. No new dependencies.
+The Weekly view and timer/manual entry forms read these from `profile` (already loaded by `useAuth`) to set defaults. Display formatters in `src/lib/format.ts` accept the time_format preference.
 
----
+### D. Account (NEW)
+- **Sign out** button (already in sidebar, but mirrored here for discoverability).
+- **Delete my account** — opens a confirm dialog (type "DELETE" to confirm). Calls a new `deleteOwnAccount` server function (`requireSupabaseAuth` middleware) that uses `supabaseAdmin.auth.admin.deleteUser(userId)` after verifying the caller is not the only admin. Cascades wipe their profile/role/entries via existing FK behavior (or we explicitly delete in the function).
 
-## Part 2 — User stats modal on Admin → Users
+### E. Admin quick links (existing, unchanged)
+Kept for admins only.
 
-### Behavior
-- The user's name in the table becomes a clickable button (link styling, hover underline).
-- Clicking it opens a `Dialog` titled "{full_name} — Activity".
-- Modal renders a loading state while fetching, then the stats below.
+## 3. Files touched
 
-### Stats shown
-- **Header**: name, email, role badge, status badge, hourly rate (if set).
-- **Totals**: 4 stat cards — Today, This week, This month, All time (hours, formatted `Xh Ym`).
-- **Top clients** (max 5): client name + total hours over the last 90 days, sorted desc.
-- **Top projects** (max 5): project name (with client) + total hours over last 90 days, sorted desc.
-- **Recent entries** (last 10): date, client → project, duration, status badge.
-- **Estimated billable value** (only if `hourly_rate` is set): all-time billable hours × hourly_rate, displayed under totals.
+**New:**
+- `supabase/migrations/<timestamp>_settings_overhaul.sql` — drop `hourly_rate`, add `default_billable`, `week_start_day`, `time_format`.
+- `src/server/account.functions.ts` — `deleteOwnAccount` server fn.
 
-### Data source
-A new server function `getUserStats(userId)` in `src/server/admin.functions.ts`:
-- Admin-only (verified via existing `authHeaders` + role check pattern used by other admin functions).
-- Runs queries against `time_entries` joined with `clients` and `projects` for that `user_id`, computing the aggregates above with simple SQL using the service-role client.
-- Returns a single typed payload `{ totals, topClients, topProjects, recentEntries, billableValue }`.
+**Edited:**
+- `src/routes/_authenticated.settings.tsx` — full rewrite into sections (Profile, Password, Preferences, Account, Admin links).
+- `src/routes/_authenticated.admin.users.tsx` — drop Rate column.
+- `src/components/UserStatsDialog.tsx` — drop billable value card & rate badge.
+- `src/server/admin.functions.ts` — drop hourly rate from `getUserStats`.
+- `src/lib/format.ts` — accept optional 12h/24h preference.
+- `src/routes/_authenticated.weekly.tsx` — honor `week_start_day`.
+- `src/routes/_authenticated.dashboard.tsx` + manual-entry form — honor `default_billable`.
 
-### UI implementation
-- New component `src/components/UserStatsDialog.tsx` taking `{ user, open, onOpenChange }`.
-- Uses `Loader2` centered while loading; renders cards using existing `Card` / `Badge` primitives, formatted via `src/lib/format.ts` helpers.
-- Wired into `_authenticated.admin.users.tsx`: name cell becomes `<button onClick={() => setStatsUser(p)}>` with hover styling; `<UserStatsDialog user={statsUser} open={!!statsUser} onOpenChange={...} />` rendered alongside the existing client-assignments dialog.
+## 4. Notes / questions
 
-### Out of scope
-- Editable stats / inline editing.
-- CSV export from this modal (admin already has Reports page with CSV).
-- Charts/graphs — stick to numbers and lists for now (we can add later if you want).
-
----
-
-## Files touched (summary)
-- All auth, dashboard, timesheet, weekly, settings, admin, manager pages — small loading state additions.
-- `src/components/StickyTimer.tsx`, `src/components/DeleteEntryButton.tsx`, `src/routes/_authenticated.tsx` — polish.
-- New: `src/components/UserStatsDialog.tsx`.
-- Edit: `src/server/admin.functions.ts` (add `getUserStats`).
-- Edit: `src/routes/_authenticated.admin.users.tsx` (clickable name + dialog).
-
-No DB migrations, no schema changes, no new dependencies.
+- Do you want me to also expose **Default billable / Week start / Time format** preferences right now, or keep this round focused on just **remove rate + change password**? They're small but each touches a couple of other screens. I'll default to including them — say the word if you'd rather skip and I'll trim the plan.
+- Account deletion is a sharp tool — confirm you want self-serve delete; otherwise I'll leave only "Sign out" in the Account section and let admins handle deletions.

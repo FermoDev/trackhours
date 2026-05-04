@@ -170,13 +170,6 @@ export const getUserStats = createServerFn({ method: "POST" })
     ninetyAgo.setDate(ninetyAgo.getDate() - 90);
     const ninetyAgoStr = ninetyAgo.toISOString().slice(0, 10);
 
-    // Profile (for hourly rate)
-    const { data: profile } = await supabaseAdmin
-      .from("profiles")
-      .select("hourly_rate")
-      .eq("user_id", data.userId)
-      .maybeSingle();
-
     // All entries with completed durations
     const { data: allEntries } = await supabaseAdmin
       .from("time_entries")
@@ -253,10 +246,6 @@ export const getUserStats = createServerFn({ method: "POST" })
       projectName: e.projects?.name || "—",
     }));
 
-    const billableValue = profile?.hourly_rate
-      ? Math.round((billableMins / 60) * Number(profile.hourly_rate) * 100) / 100
-      : null;
-
     return {
       success: true as const,
       error: null,
@@ -265,8 +254,6 @@ export const getUserStats = createServerFn({ method: "POST" })
         topClients,
         topProjects,
         recentEntries,
-        billableValue,
-        hourlyRate: profile?.hourly_rate ? Number(profile.hourly_rate) : null,
       },
     };
   });

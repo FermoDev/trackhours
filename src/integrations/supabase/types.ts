@@ -99,7 +99,6 @@ export type Database = {
           created_at: string
           email: string
           full_name: string
-          hourly_rate: number | null
           id: string
           status: Database["public"]["Enums"]["entity_status"]
           updated_at: string
@@ -109,7 +108,6 @@ export type Database = {
           created_at?: string
           email?: string
           full_name?: string
-          hourly_rate?: number | null
           id?: string
           status?: Database["public"]["Enums"]["entity_status"]
           updated_at?: string
@@ -119,7 +117,6 @@ export type Database = {
           created_at?: string
           email?: string
           full_name?: string
-          hourly_rate?: number | null
           id?: string
           status?: Database["public"]["Enums"]["entity_status"]
           updated_at?: string

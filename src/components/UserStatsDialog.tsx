@@ -25,8 +25,6 @@ interface Stats {
     clientName: string;
     projectName: string;
   }[];
-  billableValue: number | null;
-  hourlyRate: number | null;
 }
 
 export function UserStatsDialog({
@@ -79,9 +77,6 @@ export function UserStatsDialog({
               {user?.status && (
                 <Badge variant={user.status === "active" ? "default" : "secondary"}>{user.status}</Badge>
               )}
-              {user?.hourly_rate && (
-                <span className="text-xs text-muted-foreground">${user.hourly_rate}/hr</span>
-              )}
             </span>
           </DialogDescription>
         </DialogHeader>
@@ -113,20 +108,6 @@ export function UserStatsDialog({
                 </Card>
               ))}
             </div>
-
-            {stats.billableValue !== null && (
-              <Card>
-                <CardContent className="pt-4 pb-3 flex items-center justify-between">
-                  <div>
-                    <p className="text-xs text-muted-foreground">Estimated billable value (all time)</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      {formatDuration(stats.totals.billableMinutes)} billable × ${stats.hourlyRate}/hr
-                    </p>
-                  </div>
-                  <p className="text-xl font-bold font-mono">${stats.billableValue.toLocaleString()}</p>
-                </CardContent>
-              </Card>
-            )}
 
             <div className="grid sm:grid-cols-2 gap-4">
               <Card>
