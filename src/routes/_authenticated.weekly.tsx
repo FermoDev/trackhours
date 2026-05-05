@@ -31,6 +31,7 @@ function WeeklyView() {
   const [dialogProject, setDialogProject] = useState("");
   const [dialogClient, setDialogClient] = useState("");
   const [dialogMinutes, setDialogMinutes] = useState("");
+  const [dialogUnit, setDialogUnit] = useState<"h" | "m">("h");
   const [dialogDesc, setDialogDesc] = useState("");
   const [savingEntry, setSavingEntry] = useState(false);
 
@@ -64,19 +65,24 @@ function WeeklyView() {
     setDialogProject("");
     setDialogClient("");
     setDialogMinutes("");
+    setDialogUnit("h");
     setDialogDesc("");
     setDialogOpen(true);
   };
 
   const saveEntry = async () => {
     if (!user || !dialogClient || !dialogProject || !dialogMinutes) return;
+    const mins = dialogUnit === "h"
+      ? Math.round(parseFloat(dialogMinutes) * 60)
+      : parseInt(dialogMinutes);
+    if (isNaN(mins) || mins <= 0) return;
     setSavingEntry(true);
     await supabase.from("time_entries").insert({
       user_id: user.id,
       client_id: dialogClient,
       project_id: dialogProject,
       entry_date: dialogDate,
-      duration_minutes: parseInt(dialogMinutes),
+      duration_minutes: mins,
       description: dialogDesc || null,
       entry_mode: "manual" as const,
       billable: true,
@@ -247,7 +253,24 @@ function WeeklyView() {
               <SelectTrigger><SelectValue placeholder="Select project" /></SelectTrigger>
               <SelectContent>{filteredProjects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent>
             </Select>
-            <Input type="number" placeholder="Minutes" value={dialogMinutes} onChange={e => setDialogMinutes(e.target.value)} />
+            <div className="flex gap-2">
+              <Input
+                type="number"
+                step={dialogUnit === "h" ? "0.25" : "1"}
+                min="0"
+                placeholder={dialogUnit === "h" ? "Hours" : "Minutes"}
+                value={dialogMinutes}
+                onChange={e => setDialogMinutes(e.target.value)}
+                className="flex-1"
+              />
+              <Select value={dialogUnit} onValueChange={(v) => setDialogUnit(v as "h" | "m")}>
+                <SelectTrigger className="w-28"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="h">Hours</SelectItem>
+                  <SelectItem value="m">Minutes</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
             <Input placeholder="Description (optional)" value={dialogDesc} onChange={e => setDialogDesc(e.target.value)} />
           </div>
           <DialogFooter>
