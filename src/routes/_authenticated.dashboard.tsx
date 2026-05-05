@@ -38,6 +38,7 @@ function FreelancerDashboard() {
   const [weekMinutes, setWeekMinutes] = useState(0);
   const [showManual, setShowManual] = useState(false);
   const [manualDuration, setManualDuration] = useState("");
+  const [manualUnit, setManualUnit] = useState<"h" | "m">("h");
   const [manualDesc, setManualDesc] = useState("");
   const [showFullStart, setShowFullStart] = useState(false);
   const [addProjectOpen, setAddProjectOpen] = useState(false);
@@ -116,7 +117,9 @@ function FreelancerDashboard() {
 
   const handleManualEntry = async () => {
     if (!user || !selectedClient || !selectedProject || !manualDuration) return;
-    const mins = parseInt(manualDuration);
+    const mins = manualUnit === "h"
+      ? Math.round(parseFloat(manualDuration) * 60)
+      : parseInt(manualDuration);
     if (isNaN(mins) || mins <= 0) return;
     setSubmittingManual(true);
     await supabase.from("time_entries").insert({
@@ -377,7 +380,24 @@ function FreelancerDashboard() {
                   <Calendar mode="single" selected={manualDate} onSelect={(d) => d && setManualDate(d)} disabled={(date) => date > new Date()} initialFocus className={cn("p-3 pointer-events-auto")} />
                 </PopoverContent>
               </Popover>
-              <Input type="number" placeholder="Minutes" value={manualDuration} onChange={(e) => setManualDuration(e.target.value)} />
+              <div className="flex gap-2">
+                <Input
+                  type="number"
+                  step={manualUnit === "h" ? "0.25" : "1"}
+                  min="0"
+                  placeholder={manualUnit === "h" ? "Hours" : "Minutes"}
+                  value={manualDuration}
+                  onChange={(e) => setManualDuration(e.target.value)}
+                  className="flex-1"
+                />
+                <Select value={manualUnit} onValueChange={(v) => setManualUnit(v as "h" | "m")}>
+                  <SelectTrigger className="w-28"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="h">Hours</SelectItem>
+                    <SelectItem value="m">Minutes</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
             <Input placeholder="Description (optional)" value={manualDesc} onChange={(e) => setManualDesc(e.target.value)} />
             <Button onClick={handleManualEntry} disabled={!selectedClient || !selectedProject || !manualDuration || submittingManual} className="rounded-xl">
