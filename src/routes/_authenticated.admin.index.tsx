@@ -4,16 +4,14 @@ import { useState, useEffect } from "react";
 import { formatDuration } from "@/lib/format";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
-import { Link } from "@tanstack/react-router";
-import { Button } from "@/components/ui/button";
-import { Clock, Users, FileText, CheckCircle } from "lucide-react";
+import { Clock, FileText } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/admin/")({
   component: AdminDashboard,
 });
 
 function AdminDashboard() {
-  const [stats, setStats] = useState({ today: 0, week: 0, month: 0, pending: 0 });
+  const [stats, setStats] = useState({ today: 0, week: 0, month: 0, entries: 0 });
   const [byProject, setByProject] = useState<{ name: string; hours: number }[]>([]);
   const [byFreelancer, setByFreelancer] = useState<{ name: string; hours: number }[]>([]);
 
@@ -23,18 +21,18 @@ function AdminDashboard() {
       const weekStart = new Date(); weekStart.setDate(weekStart.getDate() - weekStart.getDay());
       const monthStart = new Date(); monthStart.setDate(1);
 
-      const [todayRes, weekRes, monthRes, pendingRes] = await Promise.all([
+      const [todayRes, weekRes, monthRes, entriesRes] = await Promise.all([
         supabase.from("time_entries").select("duration_minutes").eq("entry_date", today).not("duration_minutes", "is", null),
         supabase.from("time_entries").select("duration_minutes").gte("entry_date", weekStart.toISOString().slice(0, 10)).not("duration_minutes", "is", null),
         supabase.from("time_entries").select("duration_minutes").gte("entry_date", monthStart.toISOString().slice(0, 10)).not("duration_minutes", "is", null),
-        supabase.from("time_entries").select("id").eq("status", "submitted"),
+        supabase.from("time_entries").select("id").gte("entry_date", monthStart.toISOString().slice(0, 10)),
       ]);
 
       setStats({
         today: todayRes.data?.reduce((s, e) => s + (e.duration_minutes || 0), 0) || 0,
         week: weekRes.data?.reduce((s, e) => s + (e.duration_minutes || 0), 0) || 0,
         month: monthRes.data?.reduce((s, e) => s + (e.duration_minutes || 0), 0) || 0,
-        pending: pendingRes.data?.length || 0,
+        entries: entriesRes.data?.length || 0,
       });
 
       // By project
@@ -72,7 +70,7 @@ function AdminDashboard() {
           { label: "Today", value: formatDuration(stats.today), icon: Clock },
           { label: "This week", value: formatDuration(stats.week), icon: Clock },
           { label: "This month", value: formatDuration(stats.month), icon: Clock },
-          { label: "Pending approval", value: String(stats.pending), icon: CheckCircle },
+          { label: "Entries this month", value: String(stats.entries), icon: FileText },
         ].map(s => (
           <Card key={s.label}>
             <CardContent className="pt-6">
@@ -120,14 +118,6 @@ function AdminDashboard() {
         </Card>
       </div>
 
-      {stats.pending > 0 && (
-        <Card>
-          <CardContent className="pt-6 flex items-center justify-between">
-            <p className="text-sm"><strong>{stats.pending}</strong> entries awaiting approval</p>
-            <Button variant="outline" size="sm" asChild><Link to="/admin/entries">Review entries</Link></Button>
-          </CardContent>
-        </Card>
-      )}
     </div>
   );
 }

@@ -20,7 +20,6 @@ interface Stats {
     id: string;
     entry_date: string;
     duration_minutes: number;
-    status: string;
     description: string | null;
     clientName: string;
     projectName: string;
@@ -174,17 +173,6 @@ export function UserStatsDialog({
                           <p className="text-xs text-muted-foreground">{e.entry_date}</p>
                         </div>
                         <span className="font-mono text-xs">{formatDuration(e.duration_minutes)}</span>
-                        <span
-                          className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${
-                            e.status === "approved"
-                              ? "bg-success/10 text-success"
-                              : e.status === "submitted"
-                                ? "bg-primary/10 text-primary"
-                                : "bg-muted text-muted-foreground"
-                          }`}
-                        >
-                          {e.status}
-                        </span>
                       </li>
                     ))}
                   </ul>

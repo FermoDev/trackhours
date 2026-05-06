@@ -1,26 +1,51 @@
-## Add minutes/hours unit selector to manual entry inputs
+## Goal
 
-Right now the manual time entry inputs in two places force the user to type minutes:
-- Dashboard → "Manual entry" form (`src/routes/_authenticated.dashboard.tsx`, line 380)
-- Weekly view → "Add time" dialog (`src/routes/_authenticated.weekly.tsx`, line 250)
+Remove the draft → submitted → approved workflow. Time entries are final the moment a freelancer logs them. Admins keep an overview to sanity-check totals, but no per-entry approval gate.
 
-### Change
+## Behavior changes
 
-Next to each numeric duration input, add a small unit dropdown with two options: **Hours** and **Minutes**. Default to **Hours** (since the rest of the app reports in hours). The user types a number, picks the unit, and we convert to minutes before saving — the database column stays `duration_minutes` and every existing display/report (dashboard totals, weekly totals, timesheet, admin reports, manager view) continues to render via `formatDuration` unchanged.
+**For freelancers:**
+- Logging time (timer stop or manual entry) creates a final entry — no "draft" state, no "Submit" step.
+- Timesheet page becomes a clean log of their entries with filters and totals (no submit buttons, no status checkboxes, no status badges).
+- They can still edit/delete their own entries (no longer gated on "draft" status).
 
-Conversion when saving:
-- Hours → `Math.round(parseFloat(value) * 60)`
-- Minutes → `parseInt(value)`
+**For admins:**
+- No more bulk-approve flow on Admin → Entries.
+- Admin → Entries becomes a review/audit view: filters by user/client/project/date, totals at the top, full entry list. No approve buttons, no status column.
+- Admin → Reports already shows summaries (hours per user, per client, per project) — this stays as the primary "validate the overall total" surface.
+- A new lightweight per-user weekly summary on the Users page (clicking a user already opens stats) — already covers "do their logged hours look right".
 
-Hours allows decimals (e.g. `1.5` = 90 min), so the input uses `step="0.25"` when Hours is selected and `step="1"` when Minutes is selected. Placeholder updates to "Hours" / "Minutes".
+**Status column removal everywhere:**
+- Dashboard "Recent entries" — drop the `draft` badge.
+- Timesheet — drop status column, status filter, submit button, checkboxes.
+- Admin Entries — drop status column, status filter, approve buttons, checkboxes.
+- User stats dialog — drop any status breakdown.
 
-### Files touched
+## Database
 
-1. `src/routes/_authenticated.dashboard.tsx` — add `manualUnit` state (`"h" | "m"`), wrap input + Select in a flex row, convert in `handleManualEntry`.
-2. `src/routes/_authenticated.weekly.tsx` — add `dialogUnit` state, wrap input + Select inside the Add Time dialog, convert in `saveEntry`.
+Two options for the existing `status` column on `time_entries`:
 
-No DB migration. No changes to display formatting, reports, or the timer (timer already produces minutes from elapsed seconds).
+1. **Drop the column and the `entry_status` enum** (cleaner long-term, but is a schema change that touches RLS policies referencing `status`).
+2. **Keep the column, default it to `'approved'`, backfill all existing rows to `'approved'`, and stop reading/writing it from the app.** Safer, less churn.
 
-### Out of scope
+Recommendation: **Option 2**. Backfill all existing entries to `approved`, change default to `approved`, leave the column in place but ignore it in UI. Also relax the two RLS policies that restrict edit/delete to `status = 'draft'` so users can edit/delete any of their own entries.
 
-Per your note that "everything will be calculated hourly", the underlying storage stays in minutes (changing the column would break existing data and every aggregate). All user-visible totals already render as `Xh Ym` / hours via `formatDuration` and `formatHoursDecimal` — nothing reads "minutes" to the user. If you want totals shown as pure decimal hours (e.g. `7.5h` instead of `7h 30m`) anywhere specific, tell me which screens and I'll switch those to `formatHoursDecimal`.
+## RLS changes
+
+- `time_entries` "Users can update own draft entries" → "Users can update own entries" (drop the `status = 'draft'` clause).
+- `time_entries` "Users can delete own draft entries" → "Users can delete own entries" (drop the `status = 'draft'` clause).
+
+## Files to change
+
+- `src/routes/_authenticated.dashboard.tsx` — remove status badge from Recent entries.
+- `src/routes/_authenticated.timesheet.tsx` — remove submit flow, status column/filter, checkboxes; keep filters + totals.
+- `src/routes/_authenticated.admin.entries.tsx` — remove approve flow, status column/filter, checkboxes; keep filters + totals + delete.
+- `src/components/DeleteEntryButton.tsx` — verify it still works (RLS will allow now); no logic change needed.
+- `src/server/admin.functions.ts` and `src/components/UserStatsDialog.tsx` — drop any status-based breakdown.
+- Migration to backfill `status = 'approved'`, change default, and update the two RLS policies.
+
+## Out of scope
+
+- No changes to reports page logic (already aggregates by hours regardless of status).
+- No changes to manager view (it doesn't gate on status).
+- The `status` column and `entry_status` enum stay in the DB to avoid a destructive schema change. If you want them fully removed later, that's a follow-up.
