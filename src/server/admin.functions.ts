@@ -229,7 +229,7 @@ export const getUserStats = createServerFn({ method: "POST" })
     // Recent 10 entries with names
     const { data: recent } = await supabaseAdmin
       .from("time_entries")
-      .select("id, entry_date, duration_minutes, status, description, clients(name), projects(name)")
+      .select("id, entry_date, duration_minutes, description, clients(name), projects(name)")
       .eq("user_id", data.userId)
       .not("duration_minutes", "is", null)
       .order("entry_date", { ascending: false })
@@ -240,7 +240,6 @@ export const getUserStats = createServerFn({ method: "POST" })
       id: e.id,
       entry_date: e.entry_date,
       duration_minutes: e.duration_minutes || 0,
-      status: e.status,
       description: e.description,
       clientName: e.clients?.name || "—",
       projectName: e.projects?.name || "—",
