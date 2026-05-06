@@ -86,7 +86,6 @@ function WeeklyView() {
       description: dialogDesc || null,
       entry_mode: "manual" as const,
       billable: true,
-      status: "draft" as const,
     });
     setDialogOpen(false);
     await fetchData();
