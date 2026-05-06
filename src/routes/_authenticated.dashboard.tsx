@@ -131,7 +131,6 @@ function FreelancerDashboard() {
       description: manualDesc || null,
       entry_mode: "manual" as const,
       billable: true,
-      status: "draft" as const,
     });
     setManualDuration("");
     setManualDesc("");
@@ -421,10 +420,7 @@ function FreelancerDashboard() {
               {recentEntries.slice(0, 10).map((entry) => (
                 <div key={entry.id} className="flex items-center justify-between py-3 gap-3">
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <p className="font-medium text-sm truncate">{entry.projects?.name || "—"}</p>
-                      <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${entry.status === "approved" ? "bg-success/10 text-success" : entry.status === "submitted" ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"}`}>{entry.status}</span>
-                    </div>
+                    <p className="font-medium text-sm truncate">{entry.projects?.name || "—"}</p>
                     <p className="text-muted-foreground text-xs mt-0.5">{entry.clients?.name || "—"} · {entry.entry_date}</p>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
@@ -434,7 +430,7 @@ function FreelancerDashboard() {
                         <RotateCcw className="h-3 w-3" />
                       </Button>
                     )}
-                    {entry.status === "draft" && (
+                    {entry.duration_minutes && (
                       <DeleteEntryButton entryId={entry.id} onDeleted={fetchData} />
                     )}
                   </div>
