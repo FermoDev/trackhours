@@ -1,51 +1,57 @@
-## Goal
+## Per-Client Timesheet Excel Export
 
-Remove the draft → submitted → approved workflow. Time entries are final the moment a freelancer logs them. Admins keep an overview to sanity-check totals, but no per-entry approval gate.
+Add a "Download timesheet" action on each row of **Admin → Clients**. It opens a small dialog to pick a date range (with quick presets), then generates a formatted `.xlsx` workbook scoped to that client.
 
-## Behavior changes
+### UX flow
 
-**For freelancers:**
-- Logging time (timer stop or manual entry) creates a final entry — no "draft" state, no "Submit" step.
-- Timesheet page becomes a clean log of their entries with filters and totals (no submit buttons, no status checkboxes, no status badges).
-- They can still edit/delete their own entries (no longer gated on "draft" status).
+On `/admin/clients`, each client row gets a new **Download** icon button. Clicking it opens a dialog:
 
-**For admins:**
-- No more bulk-approve flow on Admin → Entries.
-- Admin → Entries becomes a review/audit view: filters by user/client/project/date, totals at the top, full entry list. No approve buttons, no status column.
-- Admin → Reports already shows summaries (hours per user, per client, per project) — this stays as the primary "validate the overall total" surface.
-- A new lightweight per-user weekly summary on the Users page (clicking a user already opens stats) — already covers "do their logged hours look right".
+- **Date range presets**: This month · Last month · This week · All time · Custom range
+- Custom range reveals two date inputs (from / to)
+- Primary button: **Download Excel** → triggers file download, closes dialog
 
-**Status column removal everywhere:**
-- Dashboard "Recent entries" — drop the `draft` badge.
-- Timesheet — drop status column, status filter, submit button, checkboxes.
-- Admin Entries — drop status column, status filter, approve buttons, checkboxes.
-- User stats dialog — drop any status breakdown.
+### Workbook structure
 
-## Database
+File name: `{ClientName}_Timesheet_{from}_to_{to}.xlsx`
 
-Two options for the existing `status` column on `time_entries`:
+**Sheet 1 — "Summary"**
+| Freelancer | Project(s) | Entries | Total Hours |
+|---|---|---|---|
+| Jane Doe | Website, Branding | 12 | 34.5 |
+| ... | | | |
+| **Grand total** | | **47** | **128.0** |
 
-1. **Drop the column and the `entry_status` enum** (cleaner long-term, but is a schema change that touches RLS policies referencing `status`).
-2. **Keep the column, default it to `'approved'`, backfill all existing rows to `'approved'`, and stop reading/writing it from the app.** Safer, less churn.
+Header row bold, hours right-aligned, totals row bold with top border. Includes a header block above the table with: Client name, Date range, Generated on, Total hours.
 
-Recommendation: **Option 2**. Backfill all existing entries to `approved`, change default to `approved`, leave the column in place but ignore it in UI. Also relax the two RLS policies that restrict edit/delete to `status = 'draft'` so users can edit/delete any of their own entries.
+**Sheets 2…N — one per freelancer** (sheet name = freelancer name, truncated to Excel's 31-char limit, deduped if collisions)
+| Date | Project | Hours | Description |
+|---|---|---|---|
+| 2026-05-01 | Website | 2.5 | Homepage hero section |
+| ... | | | |
+| | | **Total: 34.5** | |
 
-## RLS changes
+Sorted by date ascending. Hours shown as decimal hours (consistent with rest of app — minutes ÷ 60, 2 decimals). Description column wraps text, wider column.
 
-- `time_entries` "Users can update own draft entries" → "Users can update own entries" (drop the `status = 'draft'` clause).
-- `time_entries` "Users can delete own draft entries" → "Users can delete own entries" (drop the `status = 'draft'` clause).
+### Technical implementation
 
-## Files to change
+**New library**: `bun add exceljs` (works in browser, supports formatting/styling, lightweight enough for client-side generation).
 
-- `src/routes/_authenticated.dashboard.tsx` — remove status badge from Recent entries.
-- `src/routes/_authenticated.timesheet.tsx` — remove submit flow, status column/filter, checkboxes; keep filters + totals.
-- `src/routes/_authenticated.admin.entries.tsx` — remove approve flow, status column/filter, checkboxes; keep filters + totals + delete.
-- `src/components/DeleteEntryButton.tsx` — verify it still works (RLS will allow now); no logic change needed.
-- `src/server/admin.functions.ts` and `src/components/UserStatsDialog.tsx` — drop any status-based breakdown.
-- Migration to backfill `status = 'approved'`, change default, and update the two RLS policies.
+**New file**: `src/lib/exportClientTimesheet.ts`
+- Function `exportClientTimesheet({ clientId, clientName, from, to })`
+- Queries `time_entries` filtered by `client_id`, optional date range, joins `projects(name)` and `profiles(full_name, email)` (via two queries: entries + profile lookup map, since there's no FK relationship)
+- Groups entries by `user_id`
+- Builds workbook with ExcelJS, applies styles, triggers browser download via Blob
 
-## Out of scope
+**New component**: `src/components/DownloadClientTimesheetDialog.tsx`
+- Dialog with preset radio group + custom date inputs
+- Calls the export function, shows loading state, toast on success/error
 
-- No changes to reports page logic (already aggregates by hours regardless of status).
-- No changes to manager view (it doesn't gate on status).
-- The `status` column and `entry_status` enum stay in the DB to avoid a destructive schema change. If you want them fully removed later, that's a follow-up.
+**Edited**: `src/routes/_authenticated.admin.clients.tsx`
+- Add Download icon button per client row, opens the dialog with that client's id+name
+
+### Out of scope
+
+- No backend/server function — query runs client-side using the existing admin Supabase session (admins already have full read access to `time_entries` via RLS)
+- No changes to existing Reports CSV export
+- No PDF version (Excel only, as requested)
+- No email/share — file downloads to user's machine
