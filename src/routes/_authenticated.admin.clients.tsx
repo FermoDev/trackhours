@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Trash2, Loader2 } from "lucide-react";
+import { Plus, Trash2, Loader2, Download } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
@@ -15,6 +15,7 @@ import { toast } from "sonner";
 import type { Tables } from "@/integrations/supabase/types";
 import { useServerFn } from "@tanstack/react-start";
 import { mergeClients } from "@/server/clients.functions";
+import { DownloadClientTimesheetDialog } from "@/components/DownloadClientTimesheetDialog";
 
 export const Route = createFileRoute("/_authenticated/admin/clients")({
   component: AdminClientsPage,
@@ -33,6 +34,7 @@ function AdminClientsPage() {
   const [adding, setAdding] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [togglingId, setTogglingId] = useState<string | null>(null);
+  const [downloadTarget, setDownloadTarget] = useState<Tables<"clients"> | null>(null);
   const mergeClientsFn = useServerFn(mergeClients);
 
   const fetchClients = async () => {
@@ -132,6 +134,7 @@ function AdminClientsPage() {
                       <Button variant="ghost" size="sm" onClick={() => toggleStatus(c)}>{c.status === "active" ? "Archive" : "Activate"}</Button>
                       {togglingId === c.id && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
                       <Button variant="ghost" size="sm" onClick={() => { setMergeSource(c); setMergeTargetId(""); }}>Merge</Button>
+                      <Button variant="ghost" size="icon" className="h-8 w-8" title="Download timesheet" onClick={() => setDownloadTarget(c)}><Download className="h-3.5 w-3.5" /></Button>
                       <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => setDeleteTarget(c)}><Trash2 className="h-3.5 w-3.5" /></Button>
                     </div>
                   </TableCell>
@@ -201,6 +204,7 @@ function AdminClientsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      <DownloadClientTimesheetDialog client={downloadTarget} onClose={() => setDownloadTarget(null)} />
     </div>
   );
 }
