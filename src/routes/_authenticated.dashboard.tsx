@@ -501,7 +501,7 @@ function FreelancerDashboard() {
             <p className="text-xs text-muted-foreground">Will be added to the currently selected client. If a project with this name already exists, you'll join it.</p>
           </div>
           <DialogFooter>
-            <Button onClick={handleAddProject} disabled={!newProjectName.trim() || savingProject}>
+            <Button onClick={() => handleAddProject()} disabled={!newProjectName.trim() || savingProject}>
               {savingProject && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               {savingProject ? "Saving…" : "Add"}
             </Button>
@@ -522,7 +522,7 @@ function FreelancerDashboard() {
             <p className="text-xs text-muted-foreground">If a client with this name already exists, you'll join it.</p>
           </div>
           <DialogFooter>
-            <Button onClick={handleAddClient} disabled={!newClientName.trim() || savingClient}>
+            <Button onClick={() => handleAddClient()} disabled={!newClientName.trim() || savingClient}>
               {savingClient && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               {savingClient ? "Saving…" : "Add"}
             </Button>
