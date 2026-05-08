@@ -377,7 +377,16 @@ function FreelancerDashboard() {
                 <Button variant="outline" size="icon" className="shrink-0" onClick={() => setAddProjectOpen(true)} disabled={!selectedClient} title="Add project"><Plus className="h-3.5 w-3.5" /></Button>
               </div>
             </div>
-            <Button onClick={handleStart} disabled={!selectedClient || !selectedProject || timerLoading} className="rounded-xl">
+            <div className="space-y-1.5">
+              <Label className="text-xs">What are you working on? <span className="text-destructive">*</span></Label>
+              <Textarea
+                placeholder="Describe the task you're about to work on…"
+                value={timerDesc}
+                onChange={(e) => setTimerDesc(e.target.value)}
+                rows={2}
+              />
+            </div>
+            <Button onClick={handleStart} disabled={!selectedClient || !selectedProject || !timerDesc.trim() || timerLoading} className="rounded-xl">
               {timerLoading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Play className="h-4 w-4 mr-2" />}
               Start Timer
             </Button>
@@ -445,8 +454,16 @@ function FreelancerDashboard() {
                 </Select>
               </div>
             </div>
-            <Input placeholder="Description (optional)" value={manualDesc} onChange={(e) => setManualDesc(e.target.value)} />
-            <Button onClick={handleManualEntry} disabled={!selectedClient || !selectedProject || !manualDuration || submittingManual} className="rounded-xl">
+            <div className="space-y-1.5">
+              <Label className="text-xs">Description <span className="text-destructive">*</span></Label>
+              <Textarea
+                placeholder="What did you work on?"
+                value={manualDesc}
+                onChange={(e) => setManualDesc(e.target.value)}
+                rows={2}
+              />
+            </div>
+            <Button onClick={handleManualEntry} disabled={!selectedClient || !selectedProject || !manualDuration || !manualDesc.trim() || submittingManual} className="rounded-xl">
               {submittingManual && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               {submittingManual ? "Adding…" : "Add Entry"}
             </Button>
