@@ -84,33 +84,21 @@ export const findOrCreateClient = createServerFn({ method: "POST" })
 
     // Fuzzy match (only when not forcing create)
     if (data.force !== "create") {
-      const { data: fuzzy } = await supabaseAdmin
-        .rpc("find_similar_client" as any, { _name: trimmed, _threshold: SIMILARITY_THRESHOLD })
-        .then(
-          (r) => r as { data: Array<{ id: string; name: string; sim: number }> | null },
-          () => ({ data: null }),
-        );
-      // Fallback: query directly with similarity() if the RPC doesn't exist
-      let suggestion: { id: string; name: string } | null = null;
-      if (fuzzy && Array.isArray(fuzzy) && fuzzy.length > 0) {
-        suggestion = { id: fuzzy[0].id, name: fuzzy[0].name };
-      } else {
-        const { data: rows } = await supabaseAdmin
-          .from("clients")
-          .select("id, name")
-          .filter("name", "%", trimmed); // pg_trgm % operator
-        if (rows && rows.length > 0) {
-          // pick best by simple lowercase Levenshtein-ish heuristic: shortest length diff
-          const best = rows
-            .map((r) => ({ ...r, score: trigramSim(trimmed, r.name) }))
-            .sort((a, b) => b.score - a.score)[0];
-          if (best && best.score >= SIMILARITY_THRESHOLD) {
-            suggestion = { id: best.id, name: best.name };
-          }
+      const { data: rows } = await supabaseAdmin
+        .from("clients")
+        .select("id, name")
+        .eq("status", "active");
+      if (rows && rows.length > 0) {
+        const best = rows
+          .map((r) => ({ ...r, score: trigramSim(trimmed, r.name) }))
+          .sort((a, b) => b.score - a.score)[0];
+        if (best && best.score >= SIMILARITY_THRESHOLD) {
+          return {
+            success: true,
+            status: "needs_confirmation",
+            suggestion: { id: best.id, name: best.name },
+          };
         }
-      }
-      if (suggestion) {
-        return { success: true, status: "needs_confirmation", suggestion };
       }
     }
 
@@ -236,7 +224,7 @@ export const findOrCreateProject = createServerFn({ method: "POST" })
         .from("projects")
         .select("id, name")
         .eq("client_id", data.clientId)
-        .filter("name", "%", trimmed);
+        .eq("status", "active");
       if (rows && rows.length > 0) {
         const best = rows
           .map((r) => ({ ...r, score: trigramSim(trimmed, r.name) }))
