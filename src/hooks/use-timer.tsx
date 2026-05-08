@@ -1,7 +1,8 @@
-import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from "react";
+import { createContext, useContext, useState, useEffect, useCallback, useRef, type ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import type { Tables } from "@/integrations/supabase/types";
+import { ensureNotificationPermission, notifyIdle, shouldRemind } from "@/lib/idle-reminder";
 
 type TimeEntry = Tables<"time_entries">;
 
@@ -32,6 +33,7 @@ export function TimerProvider({ children }: { children: ReactNode }) {
   const [isPaused, setIsPaused] = useState(false);
   const [pausedElapsed, setPausedElapsed] = useState(0);
   const [pauseOffset, setPauseOffset] = useState(0);
+  const lastReminderAtRef = useRef<number | null>(null);
 
   const refreshTimer = useCallback(async () => {
     if (!user) { setActiveEntry(null); return; }
@@ -74,6 +76,25 @@ export function TimerProvider({ children }: { children: ReactNode }) {
     return () => window.removeEventListener("beforeunload", handler);
   }, [activeEntry]);
 
+  // Idle reminder: every 60s while running, fire desktop notification at 2h, then every 1h.
+  useEffect(() => {
+    if (!activeEntry || isPaused) return;
+    const tick = () => {
+      if (!activeEntry?.start_time) return;
+      const elapsedSec = Math.floor((Date.now() - new Date(activeEntry.start_time).getTime()) / 1000) - pauseOffset;
+      if (shouldRemind(elapsedSec, lastReminderAtRef.current)) {
+        const label = activeEntry.projectName && activeEntry.clientName
+          ? `"${activeEntry.projectName} · ${activeEntry.clientName}"`
+          : `"${activeEntry.projectName || activeEntry.clientName || "your task"}"`;
+        notifyIdle(label, elapsedSec);
+        lastReminderAtRef.current = elapsedSec;
+      }
+    };
+    tick(); // run immediately to catch already-long timers (e.g. after refresh)
+    const id = setInterval(tick, 60_000);
+    return () => clearInterval(id);
+  }, [activeEntry, isPaused, pauseOffset]);
+
   const pauseTimer = () => {
     if (!activeEntry || isPaused) return;
     setIsPaused(true);
@@ -96,6 +117,9 @@ export function TimerProvider({ children }: { children: ReactNode }) {
     setPauseOffset(0);
     setIsPaused(false);
     setPausedElapsed(0);
+    lastReminderAtRef.current = null;
+    // Ask for notification permission once, on first start
+    void ensureNotificationPermission();
     const now = new Date().toISOString();
     const { data } = await supabase
       .from("time_entries")
@@ -137,6 +161,7 @@ export function TimerProvider({ children }: { children: ReactNode }) {
     setIsPaused(false);
     setPausedElapsed(0);
     setPauseOffset(0);
+    lastReminderAtRef.current = null;
     setIsLoading(false);
   };
 

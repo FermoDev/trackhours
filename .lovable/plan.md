@@ -1,57 +1,112 @@
-## Per-Client Timesheet Excel Export
+## 1. Fuzzy match on self-serve client/project creation
 
-Add a "Download timesheet" action on each row of **Admin → Clients**. It opens a small dialog to pick a date range (with quick presets), then generates a formatted `.xlsx` workbook scoped to that client.
+Today `findOrCreateClient` / `findOrCreateProject` only match **exact** (case-insensitive) names. So "Orthodent" vs "Ortho dent" vs "Orthdent" create duplicates that an admin then has to merge.
 
-### UX flow
+### Approach
+Enable Postgres `pg_trgm` extension and add a trigram similarity check inside the existing server functions.
 
-On `/admin/clients`, each client row gets a new **Download** icon button. Clicking it opens a dialog:
+**Server function flow (both client + project):**
 
-- **Date range presets**: This month · Last month · This week · All time · Custom range
-- Custom range reveals two date inputs (from / to)
-- Primary button: **Download Excel** → triggers file download, closes dialog
+```
+input: "Orth dent"
+  ├─ exact ilike match? → join silently (existing behavior)
+  ├─ no exact, but similarity ≥ 0.85 → return { needsConfirmation: true, suggestion: { id, name } }
+  └─ no match at all → create new
+```
 
-### Workbook structure
+The client (Dashboard) reacts to `needsConfirmation` by opening a small confirm dialog:
 
-File name: `{ClientName}_Timesheet_{from}_to_{to}.xlsx`
+```
+We found a similar client: "Orthodent"
+Did you mean this one?
+  [Use existing Orthodent]   [Create new "Orth dent"]
+```
 
-**Sheet 1 — "Summary"**
-| Freelancer | Project(s) | Entries | Total Hours |
-|---|---|---|---|
-| Jane Doe | Website, Branding | 12 | 34.5 |
-| ... | | | |
-| **Grand total** | | **47** | **128.0** |
+If the user picks "Use existing" → call the same server fn again with `force: "use", id: <suggestionId>`.
+If the user picks "Create new" → call again with `force: "create"`.
 
-Header row bold, hours right-aligned, totals row bold with top border. Includes a header block above the table with: Client name, Date range, Generated on, Total hours.
+This avoids silently merging "Acme" into "Acme Inc" (which would be wrong) while still catching genuine typos. Threshold of 0.85 catches 1–2 character typos and minor word-order/spacing differences but rejects truly different names.
 
-**Sheets 2…N — one per freelancer** (sheet name = freelancer name, truncated to Excel's 31-char limit, deduped if collisions)
-| Date | Project | Hours | Description |
-|---|---|---|---|
-| 2026-05-01 | Website | 2.5 | Homepage hero section |
-| ... | | | |
-| | | **Total: 34.5** | |
+**Auto-assign on confirm**: when the user picks the existing record, the server fn inserts the `client_assignments` (and for projects, `project_assignments`) row exactly like today, so the user immediately sees it.
 
-Sorted by date ascending. Hours shown as decimal hours (consistent with rest of app — minutes ÷ 60, 2 decimals). Description column wraps text, wider column.
+### Files
 
-### Technical implementation
+- **Migration**: enable `pg_trgm`, add GIN trigram indexes on `clients(name)` and `projects(name)` (per client) for fast similarity lookup.
+- **`src/server/clients.functions.ts`**: extend `findOrCreateClient` and `findOrCreateProject` input schema with optional `force: "use" | "create"` + `forceId`. Add similarity query. Return discriminated union `{ success, status: "joined" | "created" | "needs_confirmation", id?, name?, suggestion? }`.
+- **`src/routes/_authenticated.dashboard.tsx`**: handle `status === "needs_confirmation"` by opening a small `AlertDialog` confirm. On confirm, re-call the server fn with `force`.
 
-**New library**: `bun add exceljs` (works in browser, supports formatting/styling, lightweight enough for client-side generation).
+## 2. Mandatory description
 
-**New file**: `src/lib/exportClientTimesheet.ts`
-- Function `exportClientTimesheet({ clientId, clientName, from, to })`
-- Queries `time_entries` filtered by `client_id`, optional date range, joins `projects(name)` and `profiles(full_name, email)` (via two queries: entries + profile lookup map, since there's no FK relationship)
-- Groups entries by `user_id`
-- Builds workbook with ExcelJS, applies styles, triggers browser download via Blob
+### Timer start
+- Add a description `Textarea` to the "New project timer" card and to the Quick-start path.
+- Disable the **Start Timer** button until `description.trim().length > 0`.
+- For Quick-start buttons, change behavior: clicking a quick-start chip opens the Start dialog pre-filled with that client/project, so the user is forced through the same description input rather than starting blind.
+- Pass `description` into `startTimer()` (the hook already supports it).
 
-**New component**: `src/components/DownloadClientTimesheetDialog.tsx`
-- Dialog with preset radio group + custom date inputs
-- Calls the export function, shows loading state, toast on success/error
+### Manual entry
+- The Manual entry card already has a description input — make it required: disable **Add entry** until non-empty.
+- Show a small "Required" hint under the field.
 
-**Edited**: `src/routes/_authenticated.admin.clients.tsx`
-- Add Download icon button per client row, opens the dialog with that client's id+name
+### No DB enforcement
+We keep `time_entries.description` nullable in the schema (admin-edited rows, legacy data). Validation lives in the form layer. If you'd prefer hard DB enforcement, say so and we can add a `CHECK (description IS NOT NULL AND length(trim(description)) > 0)` for rows where `user_id = auth.uid()` via a trigger (not a check constraint, since it's user-scoped).
 
-### Out of scope
+## 3. Desktop notification when timer runs > 2h ("Are you still working?")
 
-- No backend/server function — query runs client-side using the existing admin Supabase session (admins already have full read access to `time_entries` via RLS)
-- No changes to existing Reports CSV export
-- No PDF version (Excel only, as requested)
-- No email/share — file downloads to user's machine
+### Approach
+Use the browser **Notifications API** + an in-tab interval inside `use-timer.tsx`. No service worker needed — notifications fire as long as any tab of the app is open (Chrome shows them even when tab is in background).
+
+**Flow:**
+
+```
+startTimer()
+  ├─ if Notification.permission === "default" → request once
+  └─ store reminder schedule
+
+every 60s (while activeEntry && !isPaused):
+  if elapsed >= 2h and no reminder fired yet → fire notification
+  else if elapsed >= last_reminder + 1h → fire follow-up
+```
+
+**Notification content:**
+> ⏱ Still tracking time?
+> Your timer for "{project} · {client}" has been running for 2h 15m.
+> Click to open and stop it if you're done.
+
+Clicking the notification focuses the app tab (`window.focus()`).
+
+**In-app fallback** (in case the user blocked notifications): after 2h, the sticky timer bar turns amber and shows an inline "Still working? · Stop" prompt. This guarantees the warning is visible even without OS permission.
+
+### Files
+- **`src/hooks/use-timer.tsx`**: 
+  - Add `useEffect` that runs a 60s interval while `activeEntry && !isPaused`.
+  - Track `lastReminderAt` in a ref.
+  - Helper `requestNotificationPermission()` called on first `startTimer`.
+  - Helper `fireIdleReminder(elapsedSec)` that creates `new Notification(...)`.
+- **`src/components/StickyTimer.tsx`**: when `elapsed >= 7200`, switch background to `bg-warning` (or amber tint) and add subtle text "Still working?". Purely visual.
+- **`src/lib/idle-reminder.ts`** (new, small): pure helpers — `shouldRemind(elapsed, lastRemindedAt)` and `notify(title, body)` — kept separate so we can unit-test the timing logic.
+
+### Configuration
+Constants exposed at the top of the helper:
+- `FIRST_REMINDER_AFTER = 2 * 3600` (2h)
+- `REPEAT_REMINDER_EVERY = 1 * 3600` (1h)
+
+Easy to tune later or expose in Settings if requested.
+
+## Out of scope (ask before adding)
+
+- **Auto-stop the timer** at, say, 12h. Some freelancers legitimately leave it running across breaks; killing it silently risks data loss. Easy to add later.
+- **Per-user notification preference toggle** in Settings. Can add if you want it.
+- **Email reminder** if browser notifications aren't granted. More infra; do later if needed.
+
+## Summary of file changes
+
+```
+supabase/migrations/<timestamp>_pg_trgm_fuzzy_match.sql   (new)
+src/server/clients.functions.ts                          (edit: similarity + force)
+src/routes/_authenticated.dashboard.tsx                  (edit: confirm dialog, required description, quick-start opens dialog)
+src/hooks/use-timer.tsx                                  (edit: idle reminder interval + permission)
+src/components/StickyTimer.tsx                           (edit: warning state at 2h+)
+src/lib/idle-reminder.ts                                 (new: helpers)
+```
+
+No changes to admin pages, RLS, or existing CSV/Excel exports.
