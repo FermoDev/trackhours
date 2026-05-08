@@ -14,6 +14,8 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar } from "@/components/ui/calendar";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Play, Square, Clock, Plus, RotateCcw, Zap, Pause, CalendarIcon, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -50,6 +52,13 @@ function FreelancerDashboard() {
   const [savingProject, setSavingProject] = useState(false);
   const [submittingManual, setSubmittingManual] = useState(false);
   const [pendingQuickStart, setPendingQuickStart] = useState<string | null>(null);
+  const [timerDesc, setTimerDesc] = useState("");
+  // Fuzzy-match confirmation state
+  const [confirmState, setConfirmState] = useState<
+    | { kind: "client"; typed: string; suggestion: { id: string; name: string } }
+    | { kind: "project"; typed: string; suggestion: { id: string; name: string }; clientId: string }
+    | null
+  >(null);
 
   const findOrCreateClientFn = useServerFn(findOrCreateClient);
   const findOrCreateProjectFn = useServerFn(findOrCreateProject);
@@ -105,8 +114,9 @@ function FreelancerDashboard() {
   const filteredProjects = selectedClient ? projects.filter(p => p.client_id === selectedClient) : projects;
 
   const handleStart = async () => {
-    if (!selectedClient || !selectedProject) return;
-    await startTimer(selectedClient, selectedProject);
+    if (!selectedClient || !selectedProject || !timerDesc.trim()) return;
+    await startTimer(selectedClient, selectedProject, timerDesc.trim());
+    setTimerDesc("");
     setShowFullStart(false);
   };
 
@@ -116,7 +126,7 @@ function FreelancerDashboard() {
   };
 
   const handleManualEntry = async () => {
-    if (!user || !selectedClient || !selectedProject || !manualDuration) return;
+    if (!user || !selectedClient || !selectedProject || !manualDuration || !manualDesc.trim()) return;
     const mins = manualUnit === "h"
       ? Math.round(parseFloat(manualDuration) * 60)
       : parseInt(manualDuration);
@@ -128,7 +138,7 @@ function FreelancerDashboard() {
       project_id: selectedProject,
       entry_date: format(manualDate, "yyyy-MM-dd"),
       duration_minutes: mins,
-      description: manualDesc || null,
+      description: manualDesc.trim(),
       entry_mode: "manual" as const,
       billable: true,
     });
@@ -140,51 +150,88 @@ function FreelancerDashboard() {
     setSubmittingManual(false);
   };
 
-  const handleQuickStart = async (clientId: string, projectId: string) => {
-    const key = `${clientId}:${projectId}`;
-    setPendingQuickStart(key);
-    try {
-      await startTimer(clientId, projectId);
-    } finally {
-      setPendingQuickStart(null);
-    }
+  const handleQuickStart = (clientId: string, projectId: string) => {
+    // Open the start dialog pre-filled so user must enter a description
+    setSelectedClient(clientId);
+    setSelectedProject(projectId);
+    setTimerDesc("");
+    setShowFullStart(true);
+    setShowManual(false);
   };
 
-  const handleAddProject = async () => {
+  const handleAddProject = async (force?: "use" | "create", forceId?: string) => {
     if (!newProjectName.trim() || !selectedClient) return;
     setSavingProject(true);
     const result = await findOrCreateProjectFn({
-      data: { clientId: selectedClient, name: newProjectName.trim() },
+      data: { clientId: selectedClient, name: newProjectName.trim(), force, forceId },
     });
     setSavingProject(false);
     if (!result.success) {
       toast.error(result.error || "Failed to add project");
       return;
     }
+    if (result.status === "needs_confirmation") {
+      setConfirmState({
+        kind: "project",
+        typed: newProjectName.trim(),
+        suggestion: result.suggestion,
+        clientId: selectedClient,
+      });
+      return;
+    }
     setNewProjectName("");
     setAddProjectOpen(false);
-    toast.success(result.created ? "Project created" : "Joined existing project");
+    toast.success(result.status === "created" ? "Project created" : "Joined existing project");
     await fetchData();
     setSelectedProject(result.id);
   };
 
-  const handleAddClient = async () => {
+  const handleAddClient = async (force?: "use" | "create", forceId?: string) => {
     if (!newClientName.trim()) return;
     setSavingClient(true);
     const result = await findOrCreateClientFn({
-      data: { name: newClientName.trim() },
+      data: { name: newClientName.trim(), force, forceId },
     });
     setSavingClient(false);
     if (!result.success) {
       toast.error(result.error || "Failed to add client");
       return;
     }
+    if (result.status === "needs_confirmation") {
+      setConfirmState({
+        kind: "client",
+        typed: newClientName.trim(),
+        suggestion: result.suggestion,
+      });
+      return;
+    }
     setNewClientName("");
     setAddClientOpen(false);
-    toast.success(result.created ? "Client added" : "Joined existing client");
+    toast.success(result.status === "created" ? "Client added" : "Joined existing client");
     await fetchData();
     setSelectedClient(result.id);
     setSelectedProject("");
+  };
+
+  const handleConfirmUseExisting = async () => {
+    if (!confirmState) return;
+    const cs = confirmState;
+    setConfirmState(null);
+    if (cs.kind === "client") {
+      await handleAddClient("use", cs.suggestion.id);
+    } else {
+      await handleAddProject("use", cs.suggestion.id);
+    }
+  };
+  const handleConfirmCreateNew = async () => {
+    if (!confirmState) return;
+    const cs = confirmState;
+    setConfirmState(null);
+    if (cs.kind === "client") {
+      await handleAddClient("create");
+    } else {
+      await handleAddProject("create");
+    }
   };
 
   const todayPct = Math.min(100, (todayMinutes / TARGET_DAY) * 100);
