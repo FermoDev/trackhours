@@ -1,112 +1,48 @@
-## 1. Fuzzy match on self-serve client/project creation
+## Goal
+Give freelancers a clear, standalone way to add clients and projects from the Dashboard — not buried inside the timer/manual-entry forms.
 
-Today `findOrCreateClient` / `findOrCreateProject` only match **exact** (case-insensitive) names. So "Orthodent" vs "Ortho dent" vs "Orthdent" create duplicates that an admin then has to merge.
+Today, the Dashboard already wires `findOrCreateClient` / `findOrCreateProject` and has `+` buttons next to the client/project dropdowns inside the "New project timer" and "Manual entry" cards. But:
+- They're invisible until a freelancer opens one of those forms.
+- "Add project" is disabled until a client is selected, so it's not discoverable as a top-level action.
 
-### Approach
-Enable Postgres `pg_trgm` extension and add a trigram similarity check inside the existing server functions.
+## Change
 
-**Server function flow (both client + project):**
+Add a small **"Quick add"** row at the top of the Dashboard (above Quick start / timer card), visible to everyone, with two buttons:
 
-```
-input: "Orth dent"
-  ├─ exact ilike match? → join silently (existing behavior)
-  ├─ no exact, but similarity ≥ 0.85 → return { needsConfirmation: true, suggestion: { id, name } }
-  └─ no match at all → create new
-```
+- **+ New client** → opens the existing `addClientOpen` dialog
+- **+ New project** → opens the existing `addProjectOpen` dialog, but in a slightly enhanced version that also lets the user pick the client inline (since no client is pre-selected from this entry point)
 
-The client (Dashboard) reacts to `needsConfirmation` by opening a small confirm dialog:
+Behavior:
+- Reuses the same `findOrCreateClient` / `findOrCreateProject` server functions (fuzzy match + join-existing confirmation flow already in place).
+- After successful creation, refresh `clients` / `projects` lists and toast.
+- Newly created/joined client/project is auto-selected in the timer form for convenience (nice-to-have, low cost since state is already there).
 
-```
-We found a similar client: "Orthodent"
-Did you mean this one?
-  [Use existing Orthodent]   [Create new "Orth dent"]
-```
+## Technical Details
 
-If the user picks "Use existing" → call the same server fn again with `force: "use", id: <suggestionId>`.
-If the user picks "Create new" → call again with `force: "create"`.
+**File:** `src/routes/_authenticated.dashboard.tsx` only. No DB / server-function changes.
 
-This avoids silently merging "Acme" into "Acme Inc" (which would be wrong) while still catching genuine typos. Threshold of 0.85 catches 1–2 character typos and minor word-order/spacing differences but rejects truly different names.
+1. Add a "Quick add" section (compact card or inline button row) rendered near the top of the page, conditional on `!activeEntry` (or always visible — confirm in question below).
+2. Extend the existing **Add project** dialog (`addProjectOpen`) to include a client `<Select>` when `selectedClient` is empty. When opened from the timer card, behavior stays the same (client is preselected and select is hidden/locked).
+3. On successful add from the quick-add buttons:
+   - Update local `clients` / `projects` state from the server response (or re-run `loadData()`).
+   - Auto-select the new client/project in the timer form.
+4. No changes to RLS, server functions, or migrations — `findOrCreateProject` already runs under `supabaseAdmin` and handles the freelancer case.
 
-**Auto-assign on confirm**: when the user picks the existing record, the server fn inserts the `client_assignments` (and for projects, `project_assignments`) row exactly like today, so the user immediately sees it.
+## Out of scope
+- A dedicated `/projects` page for freelancers.
+- Editing/archiving projects from the freelancer side.
+- Admin merge UI changes.
 
-### Files
+## Question before I implement
+Where should the **Quick add** buttons live visually? Options:
 
-- **Migration**: enable `pg_trgm`, add GIN trigram indexes on `clients(name)` and `projects(name)` (per client) for fast similarity lookup.
-- **`src/server/clients.functions.ts`**: extend `findOrCreateClient` and `findOrCreateProject` input schema with optional `force: "use" | "create"` + `forceId`. Add similarity query. Return discriminated union `{ success, status: "joined" | "created" | "needs_confirmation", id?, name?, suggestion? }`.
-- **`src/routes/_authenticated.dashboard.tsx`**: handle `status === "needs_confirmation"` by opening a small `AlertDialog` confirm. On confirm, re-call the server fn with `force`.
+```text
+A) Compact pill row above "Quick start":
+   [ + New client ]  [ + New project ]
 
-## 2. Mandatory description
+B) Inside the Quick start card header (right-aligned), next to "Quick start" label.
 
-### Timer start
-- Add a description `Textarea` to the "New project timer" card and to the Quick-start path.
-- Disable the **Start Timer** button until `description.trim().length > 0`.
-- For Quick-start buttons, change behavior: clicking a quick-start chip opens the Start dialog pre-filled with that client/project, so the user is forced through the same description input rather than starting blind.
-- Pass `description` into `startTimer()` (the hook already supports it).
-
-### Manual entry
-- The Manual entry card already has a description input — make it required: disable **Add entry** until non-empty.
-- Show a small "Required" hint under the field.
-
-### No DB enforcement
-We keep `time_entries.description` nullable in the schema (admin-edited rows, legacy data). Validation lives in the form layer. If you'd prefer hard DB enforcement, say so and we can add a `CHECK (description IS NOT NULL AND length(trim(description)) > 0)` for rows where `user_id = auth.uid()` via a trigger (not a check constraint, since it's user-scoped).
-
-## 3. Desktop notification when timer runs > 2h ("Are you still working?")
-
-### Approach
-Use the browser **Notifications API** + an in-tab interval inside `use-timer.tsx`. No service worker needed — notifications fire as long as any tab of the app is open (Chrome shows them even when tab is in background).
-
-**Flow:**
-
-```
-startTimer()
-  ├─ if Notification.permission === "default" → request once
-  └─ store reminder schedule
-
-every 60s (while activeEntry && !isPaused):
-  if elapsed >= 2h and no reminder fired yet → fire notification
-  else if elapsed >= last_reminder + 1h → fire follow-up
+C) As a small card to the right of the timer card on desktop, collapses below on mobile.
 ```
 
-**Notification content:**
-> ⏱ Still tracking time?
-> Your timer for "{project} · {client}" has been running for 2h 15m.
-> Click to open and stop it if you're done.
-
-Clicking the notification focuses the app tab (`window.focus()`).
-
-**In-app fallback** (in case the user blocked notifications): after 2h, the sticky timer bar turns amber and shows an inline "Still working? · Stop" prompt. This guarantees the warning is visible even without OS permission.
-
-### Files
-- **`src/hooks/use-timer.tsx`**: 
-  - Add `useEffect` that runs a 60s interval while `activeEntry && !isPaused`.
-  - Track `lastReminderAt` in a ref.
-  - Helper `requestNotificationPermission()` called on first `startTimer`.
-  - Helper `fireIdleReminder(elapsedSec)` that creates `new Notification(...)`.
-- **`src/components/StickyTimer.tsx`**: when `elapsed >= 7200`, switch background to `bg-warning` (or amber tint) and add subtle text "Still working?". Purely visual.
-- **`src/lib/idle-reminder.ts`** (new, small): pure helpers — `shouldRemind(elapsed, lastRemindedAt)` and `notify(title, body)` — kept separate so we can unit-test the timing logic.
-
-### Configuration
-Constants exposed at the top of the helper:
-- `FIRST_REMINDER_AFTER = 2 * 3600` (2h)
-- `REPEAT_REMINDER_EVERY = 1 * 3600` (1h)
-
-Easy to tune later or expose in Settings if requested.
-
-## Out of scope (ask before adding)
-
-- **Auto-stop the timer** at, say, 12h. Some freelancers legitimately leave it running across breaks; killing it silently risks data loss. Easy to add later.
-- **Per-user notification preference toggle** in Settings. Can add if you want it.
-- **Email reminder** if browser notifications aren't granted. More infra; do later if needed.
-
-## Summary of file changes
-
-```
-supabase/migrations/<timestamp>_pg_trgm_fuzzy_match.sql   (new)
-src/server/clients.functions.ts                          (edit: similarity + force)
-src/routes/_authenticated.dashboard.tsx                  (edit: confirm dialog, required description, quick-start opens dialog)
-src/hooks/use-timer.tsx                                  (edit: idle reminder interval + permission)
-src/components/StickyTimer.tsx                           (edit: warning state at 2h+)
-src/lib/idle-reminder.ts                                 (new: helpers)
-```
-
-No changes to admin pages, RLS, or existing CSV/Excel exports.
+Default if you don't pick: **A** — most discoverable, simplest, no layout reshuffle.
