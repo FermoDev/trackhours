@@ -526,13 +526,25 @@ function FreelancerDashboard() {
             <DialogTitle>Add Project</DialogTitle>
             <DialogDescription className="sr-only">Quickly create a new project under the selected client.</DialogDescription>
           </DialogHeader>
-          <div className="space-y-2">
-            <Label>Project name</Label>
-            <Input value={newProjectName} onChange={e => setNewProjectName(e.target.value)} placeholder="e.g. Website Redesign" />
-            <p className="text-xs text-muted-foreground">Will be added to the currently selected client. If a project with this name already exists, you'll join it.</p>
+          <div className="space-y-3">
+            <div className="space-y-2">
+              <Label>Client</Label>
+              <Select value={addProjectClientId} onValueChange={setAddProjectClientId}>
+                <SelectTrigger><SelectValue placeholder="Select a client" /></SelectTrigger>
+                <SelectContent>
+                  {clients.length === 0 && <p className="text-xs text-muted-foreground px-3 py-2">No clients yet — add one first</p>}
+                  {clients.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Project name</Label>
+              <Input value={newProjectName} onChange={e => setNewProjectName(e.target.value)} placeholder="e.g. Website Redesign" />
+              <p className="text-xs text-muted-foreground">If a project with this name already exists for the client, you'll join it.</p>
+            </div>
           </div>
           <DialogFooter>
-            <Button onClick={() => handleAddProject()} disabled={!newProjectName.trim() || savingProject}>
+            <Button onClick={() => handleAddProject()} disabled={!newProjectName.trim() || !addProjectClientId || savingProject}>
               {savingProject && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               {savingProject ? "Saving…" : "Add"}
             </Button>
