@@ -378,7 +378,6 @@ function FreelancerDashboard() {
                     {filteredProjects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
                   </SelectContent>
                 </Select>
-                <Button variant="outline" size="icon" className="shrink-0" onClick={() => setAddProjectOpen(true)} disabled={!selectedClient} title="Add project"><Plus className="h-3.5 w-3.5" /></Button>
               </div>
             </div>
             <div className="space-y-1.5">
