@@ -250,6 +250,16 @@ function FreelancerDashboard() {
         <p className="text-muted-foreground text-sm mt-1">Here's your time tracking overview</p>
       </div>
 
+      {/* Quick add — always available */}
+      <div className="flex flex-wrap gap-2">
+        <Button variant="outline" size="sm" onClick={() => setAddClientOpen(true)}>
+          <Plus className="h-3.5 w-3.5 mr-1.5" /> New client
+        </Button>
+        <Button variant="outline" size="sm" onClick={() => { setAddProjectClientId(""); setAddProjectOpen(true); }}>
+          <Plus className="h-3.5 w-3.5 mr-1.5" /> New project
+        </Button>
+      </div>
+
       {/* Hours targets */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <Card>
