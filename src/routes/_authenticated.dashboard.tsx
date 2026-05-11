@@ -45,6 +45,7 @@ function FreelancerDashboard() {
   const [showFullStart, setShowFullStart] = useState(false);
   const [addProjectOpen, setAddProjectOpen] = useState(false);
   const [newProjectName, setNewProjectName] = useState("");
+  const [addProjectClientId, setAddProjectClientId] = useState("");
   const [manualDate, setManualDate] = useState<Date>(new Date());
   const [addClientOpen, setAddClientOpen] = useState(false);
   const [newClientName, setNewClientName] = useState("");
@@ -160,10 +161,11 @@ function FreelancerDashboard() {
   };
 
   const handleAddProject = async (force?: "use" | "create", forceId?: string) => {
-    if (!newProjectName.trim() || !selectedClient) return;
+    const clientId = addProjectClientId || selectedClient;
+    if (!newProjectName.trim() || !clientId) return;
     setSavingProject(true);
     const result = await findOrCreateProjectFn({
-      data: { clientId: selectedClient, name: newProjectName.trim(), force, forceId },
+      data: { clientId, name: newProjectName.trim(), force, forceId },
     });
     setSavingProject(false);
     if (!result.success) {
@@ -175,14 +177,16 @@ function FreelancerDashboard() {
         kind: "project",
         typed: newProjectName.trim(),
         suggestion: result.suggestion,
-        clientId: selectedClient,
+        clientId,
       });
       return;
     }
     setNewProjectName("");
     setAddProjectOpen(false);
+    setAddProjectClientId("");
     toast.success(result.status === "created" ? "Project created" : "Joined existing project");
     await fetchData();
+    setSelectedClient(clientId);
     setSelectedProject(result.id);
   };
 
@@ -244,6 +248,16 @@ function FreelancerDashboard() {
           Welcome{profile?.full_name ? `, ${profile.full_name}` : ""}
         </h1>
         <p className="text-muted-foreground text-sm mt-1">Here's your time tracking overview</p>
+      </div>
+
+      {/* Quick add — always available */}
+      <div className="flex flex-wrap gap-2">
+        <Button variant="outline" size="sm" onClick={() => setAddClientOpen(true)}>
+          <Plus className="h-3.5 w-3.5 mr-1.5" /> New client
+        </Button>
+        <Button variant="outline" size="sm" onClick={() => { setAddProjectClientId(""); setAddProjectOpen(true); }}>
+          <Plus className="h-3.5 w-3.5 mr-1.5" /> New project
+        </Button>
       </div>
 
       {/* Hours targets */}
@@ -374,7 +388,7 @@ function FreelancerDashboard() {
                     {filteredProjects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
                   </SelectContent>
                 </Select>
-                <Button variant="outline" size="icon" className="shrink-0" onClick={() => setAddProjectOpen(true)} disabled={!selectedClient} title="Add project"><Plus className="h-3.5 w-3.5" /></Button>
+                <Button variant="outline" size="icon" className="shrink-0" onClick={() => { setAddProjectClientId(selectedClient); setAddProjectOpen(true); }} disabled={!selectedClient} title="Add project"><Plus className="h-3.5 w-3.5" /></Button>
               </div>
             </div>
             <div className="space-y-1.5">
@@ -420,7 +434,7 @@ function FreelancerDashboard() {
                     {filteredProjects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
                   </SelectContent>
                 </Select>
-                <Button variant="outline" size="icon" className="shrink-0" onClick={() => setAddProjectOpen(true)} disabled={!selectedClient} title="Add project"><Plus className="h-3.5 w-3.5" /></Button>
+                <Button variant="outline" size="icon" className="shrink-0" onClick={() => { setAddProjectClientId(selectedClient); setAddProjectOpen(true); }} disabled={!selectedClient} title="Add project"><Plus className="h-3.5 w-3.5" /></Button>
               </div>
             </div>
             <div className="grid grid-cols-2 gap-3">
@@ -512,13 +526,25 @@ function FreelancerDashboard() {
             <DialogTitle>Add Project</DialogTitle>
             <DialogDescription className="sr-only">Quickly create a new project under the selected client.</DialogDescription>
           </DialogHeader>
-          <div className="space-y-2">
-            <Label>Project name</Label>
-            <Input value={newProjectName} onChange={e => setNewProjectName(e.target.value)} placeholder="e.g. Website Redesign" />
-            <p className="text-xs text-muted-foreground">Will be added to the currently selected client. If a project with this name already exists, you'll join it.</p>
+          <div className="space-y-3">
+            <div className="space-y-2">
+              <Label>Client</Label>
+              <Select value={addProjectClientId} onValueChange={setAddProjectClientId}>
+                <SelectTrigger><SelectValue placeholder="Select a client" /></SelectTrigger>
+                <SelectContent>
+                  {clients.length === 0 && <p className="text-xs text-muted-foreground px-3 py-2">No clients yet — add one first</p>}
+                  {clients.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Project name</Label>
+              <Input value={newProjectName} onChange={e => setNewProjectName(e.target.value)} placeholder="e.g. Website Redesign" />
+              <p className="text-xs text-muted-foreground">If a project with this name already exists for the client, you'll join it.</p>
+            </div>
           </div>
           <DialogFooter>
-            <Button onClick={() => handleAddProject()} disabled={!newProjectName.trim() || savingProject}>
+            <Button onClick={() => handleAddProject()} disabled={!newProjectName.trim() || !addProjectClientId || savingProject}>
               {savingProject && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               {savingProject ? "Saving…" : "Add"}
             </Button>
