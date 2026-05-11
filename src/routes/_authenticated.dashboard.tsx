@@ -45,6 +45,7 @@ function FreelancerDashboard() {
   const [showFullStart, setShowFullStart] = useState(false);
   const [addProjectOpen, setAddProjectOpen] = useState(false);
   const [newProjectName, setNewProjectName] = useState("");
+  const [addProjectClientId, setAddProjectClientId] = useState("");
   const [manualDate, setManualDate] = useState<Date>(new Date());
   const [addClientOpen, setAddClientOpen] = useState(false);
   const [newClientName, setNewClientName] = useState("");
@@ -160,10 +161,11 @@ function FreelancerDashboard() {
   };
 
   const handleAddProject = async (force?: "use" | "create", forceId?: string) => {
-    if (!newProjectName.trim() || !selectedClient) return;
+    const clientId = addProjectClientId || selectedClient;
+    if (!newProjectName.trim() || !clientId) return;
     setSavingProject(true);
     const result = await findOrCreateProjectFn({
-      data: { clientId: selectedClient, name: newProjectName.trim(), force, forceId },
+      data: { clientId, name: newProjectName.trim(), force, forceId },
     });
     setSavingProject(false);
     if (!result.success) {
@@ -175,14 +177,16 @@ function FreelancerDashboard() {
         kind: "project",
         typed: newProjectName.trim(),
         suggestion: result.suggestion,
-        clientId: selectedClient,
+        clientId,
       });
       return;
     }
     setNewProjectName("");
     setAddProjectOpen(false);
+    setAddProjectClientId("");
     toast.success(result.status === "created" ? "Project created" : "Joined existing project");
     await fetchData();
+    setSelectedClient(clientId);
     setSelectedProject(result.id);
   };
 
