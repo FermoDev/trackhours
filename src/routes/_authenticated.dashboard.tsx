@@ -49,6 +49,8 @@ function FreelancerDashboard() {
   const [manualDate, setManualDate] = useState<Date>(new Date());
   const [addClientOpen, setAddClientOpen] = useState(false);
   const [newClientName, setNewClientName] = useState("");
+  const [newClientDescription, setNewClientDescription] = useState("");
+  const [newProjectDescription, setNewProjectDescription] = useState("");
   const [savingClient, setSavingClient] = useState(false);
   const [savingProject, setSavingProject] = useState(false);
   const [submittingManual, setSubmittingManual] = useState(false);
@@ -162,59 +164,84 @@ function FreelancerDashboard() {
 
   const handleAddProject = async (force?: "use" | "create", forceId?: string) => {
     const clientId = addProjectClientId || selectedClient;
-    if (!newProjectName.trim() || !clientId) return;
+    if (!newProjectName.trim() || !clientId || !newProjectDescription.trim()) return;
     setSavingProject(true);
-    const result = await findOrCreateProjectFn({
-      data: { clientId, name: newProjectName.trim(), force, forceId },
-    });
-    setSavingProject(false);
-    if (!result.success) {
-      toast.error(result.error || "Failed to add project");
-      return;
-    }
-    if (result.status === "needs_confirmation") {
-      setConfirmState({
-        kind: "project",
-        typed: newProjectName.trim(),
-        suggestion: result.suggestion,
-        clientId,
+    try {
+      const result = await findOrCreateProjectFn({
+        data: {
+          clientId,
+          name: newProjectName.trim(),
+          description: newProjectDescription.trim(),
+          force,
+          forceId,
+        },
       });
-      return;
+      if (!result.success) {
+        toast.error(result.error || "Failed to add project");
+        return;
+      }
+      if (result.status === "needs_confirmation") {
+        setConfirmState({
+          kind: "project",
+          typed: newProjectName.trim(),
+          suggestion: result.suggestion,
+          clientId,
+        });
+        return;
+      }
+      setNewProjectName("");
+      setNewProjectDescription("");
+      setAddProjectOpen(false);
+      setAddProjectClientId("");
+      toast.success(result.status === "created" ? "Project created" : "Joined existing project");
+      await fetchData();
+      setSelectedClient(clientId);
+      setSelectedProject(result.id);
+    } catch (err) {
+      console.error("Add project failed:", err);
+      toast.error(err instanceof Error ? err.message : "Failed to add project. Please try signing in again.");
+    } finally {
+      setSavingProject(false);
     }
-    setNewProjectName("");
-    setAddProjectOpen(false);
-    setAddProjectClientId("");
-    toast.success(result.status === "created" ? "Project created" : "Joined existing project");
-    await fetchData();
-    setSelectedClient(clientId);
-    setSelectedProject(result.id);
   };
 
   const handleAddClient = async (force?: "use" | "create", forceId?: string) => {
-    if (!newClientName.trim()) return;
+    if (!newClientName.trim() || !newClientDescription.trim()) return;
     setSavingClient(true);
-    const result = await findOrCreateClientFn({
-      data: { name: newClientName.trim(), force, forceId },
-    });
-    setSavingClient(false);
-    if (!result.success) {
-      toast.error(result.error || "Failed to add client");
-      return;
-    }
-    if (result.status === "needs_confirmation") {
-      setConfirmState({
-        kind: "client",
-        typed: newClientName.trim(),
-        suggestion: result.suggestion,
+    try {
+      const result = await findOrCreateClientFn({
+        data: {
+          name: newClientName.trim(),
+          description: newClientDescription.trim(),
+          force,
+          forceId,
+        },
       });
-      return;
+      if (!result.success) {
+        toast.error(result.error || "Failed to add client");
+        return;
+      }
+      if (result.status === "needs_confirmation") {
+        setConfirmState({
+          kind: "client",
+          typed: newClientName.trim(),
+          suggestion: result.suggestion,
+        });
+        return;
+      }
+      setNewClientName("");
+      setNewClientDescription("");
+      setAddClientOpen(false);
+      toast.success(result.status === "created" ? "Client added" : "Joined existing client");
+      await fetchData();
+      setSelectedClient(result.id);
+      setSelectedProject("");
+    } catch (err) {
+      console.error("Add client failed:", err);
+      toast.error(err instanceof Error ? err.message : "Failed to add client. Please try signing in again.");
+    } finally {
+      setSavingClient(false);
     }
-    setNewClientName("");
-    setAddClientOpen(false);
-    toast.success(result.status === "created" ? "Client added" : "Joined existing client");
-    await fetchData();
-    setSelectedClient(result.id);
-    setSelectedProject("");
   };
 
   const handleConfirmUseExisting = async () => {
