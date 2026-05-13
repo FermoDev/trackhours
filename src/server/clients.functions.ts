@@ -21,7 +21,6 @@ const nameSchema = z
 const descriptionSchema = z
   .string()
   .trim()
-  .min(1, "Description is required")
   .max(500, "Description is too long");
 
 const SIMILARITY_THRESHOLD = 0.6;
