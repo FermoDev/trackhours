@@ -547,7 +547,14 @@ function FreelancerDashboard() {
       </Card>
 
       {/* Add Project Dialog */}
-      <Dialog open={addProjectOpen} onOpenChange={setAddProjectOpen}>
+      <Dialog open={addProjectOpen} onOpenChange={(o) => {
+        setAddProjectOpen(o);
+        if (!o) {
+          setNewProjectName("");
+          setNewProjectDescription("");
+          setSavingProject(false);
+        }
+      }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Add Project</DialogTitle>
@@ -569,9 +576,18 @@ function FreelancerDashboard() {
               <Input value={newProjectName} onChange={e => setNewProjectName(e.target.value)} placeholder="e.g. Website Redesign" />
               <p className="text-xs text-muted-foreground">If a project with this name already exists for the client, you'll join it.</p>
             </div>
+            <div className="space-y-2">
+              <Label>Description <span className="text-destructive">*</span></Label>
+              <Textarea
+                value={newProjectDescription}
+                onChange={e => setNewProjectDescription(e.target.value)}
+                placeholder="What is this project about?"
+                rows={2}
+              />
+            </div>
           </div>
           <DialogFooter>
-            <Button onClick={() => handleAddProject()} disabled={!newProjectName.trim() || !addProjectClientId || savingProject}>
+            <Button onClick={() => handleAddProject()} disabled={!newProjectName.trim() || !addProjectClientId || !newProjectDescription.trim() || savingProject}>
               {savingProject && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               {savingProject ? "Saving…" : "Add"}
             </Button>
@@ -580,19 +596,37 @@ function FreelancerDashboard() {
       </Dialog>
 
       {/* Add Client Dialog */}
-      <Dialog open={addClientOpen} onOpenChange={setAddClientOpen}>
+      <Dialog open={addClientOpen} onOpenChange={(o) => {
+        setAddClientOpen(o);
+        if (!o) {
+          setNewClientName("");
+          setNewClientDescription("");
+          setSavingClient(false);
+        }
+      }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Add Client</DialogTitle>
             <DialogDescription className="sr-only">Add a new client or join an existing one by name.</DialogDescription>
           </DialogHeader>
-          <div className="space-y-2">
-            <Label>Client name</Label>
-            <Input value={newClientName} onChange={e => setNewClientName(e.target.value)} placeholder="e.g. Acme Inc" autoFocus />
-            <p className="text-xs text-muted-foreground">If a client with this name already exists, you'll join it.</p>
+          <div className="space-y-3">
+            <div className="space-y-2">
+              <Label>Client name</Label>
+              <Input value={newClientName} onChange={e => setNewClientName(e.target.value)} placeholder="e.g. Acme Inc" autoFocus />
+              <p className="text-xs text-muted-foreground">If a client with this name already exists, you'll join it.</p>
+            </div>
+            <div className="space-y-2">
+              <Label>Description <span className="text-destructive">*</span></Label>
+              <Textarea
+                value={newClientDescription}
+                onChange={e => setNewClientDescription(e.target.value)}
+                placeholder="Briefly describe this client"
+                rows={2}
+              />
+            </div>
           </div>
           <DialogFooter>
-            <Button onClick={() => handleAddClient()} disabled={!newClientName.trim() || savingClient}>
+            <Button onClick={() => handleAddClient()} disabled={!newClientName.trim() || !newClientDescription.trim() || savingClient}>
               {savingClient && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               {savingClient ? "Saving…" : "Add"}
             </Button>
