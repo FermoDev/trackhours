@@ -18,6 +18,12 @@ const nameSchema = z
   .min(1, "Name is required")
   .max(100, "Name is too long");
 
+const descriptionSchema = z
+  .string()
+  .trim()
+  .min(1, "Description is required")
+  .max(500, "Description is too long");
+
 const SIMILARITY_THRESHOLD = 0.6;
 
 type FindOrCreateResult =
@@ -38,6 +44,7 @@ export const findOrCreateClient = createServerFn({ method: "POST" })
     z
       .object({
         name: nameSchema,
+        description: descriptionSchema.optional(),
         force: z.enum(["use", "create"]).optional(),
         forceId: z.string().uuid().optional(),
       })
@@ -46,6 +53,7 @@ export const findOrCreateClient = createServerFn({ method: "POST" })
   .handler(async ({ data, context }): Promise<FindOrCreateResult> => {
     const { userId } = context;
     const trimmed = data.name.trim();
+    const description = data.description?.trim() || null;
 
     // force: "use" — caller confirmed an existing match
     if (data.force === "use" && data.forceId) {
@@ -105,7 +113,7 @@ export const findOrCreateClient = createServerFn({ method: "POST" })
     // Create new
     const { data: created, error: insertError } = await supabaseAdmin
       .from("clients")
-      .insert({ name: trimmed, created_by: userId })
+      .insert({ name: trimmed, description, created_by: userId })
       .select("id, name")
       .single();
 
@@ -161,6 +169,7 @@ export const findOrCreateProject = createServerFn({ method: "POST" })
       .object({
         clientId: z.string().uuid(),
         name: nameSchema,
+        description: descriptionSchema.optional(),
         force: z.enum(["use", "create"]).optional(),
         forceId: z.string().uuid().optional(),
       })
@@ -169,6 +178,7 @@ export const findOrCreateProject = createServerFn({ method: "POST" })
   .handler(async ({ data, context }): Promise<FindOrCreateResult> => {
     const { supabase, userId } = context;
     const trimmed = data.name.trim();
+    const description = data.description?.trim() || null;
 
     if (data.force === "use" && data.forceId) {
       const { data: existing } = await supabaseAdmin
@@ -241,7 +251,7 @@ export const findOrCreateProject = createServerFn({ method: "POST" })
 
     const { data: created, error: insertError } = await supabaseAdmin
       .from("projects")
-      .insert({ name: trimmed, client_id: data.clientId, created_by: userId })
+      .insert({ name: trimmed, description, client_id: data.clientId, created_by: userId })
       .select("id, name")
       .single();
 
