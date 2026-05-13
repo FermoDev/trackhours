@@ -49,8 +49,6 @@ function FreelancerDashboard() {
   const [manualDate, setManualDate] = useState<Date>(new Date());
   const [addClientOpen, setAddClientOpen] = useState(false);
   const [newClientName, setNewClientName] = useState("");
-  const [newClientDescription, setNewClientDescription] = useState("");
-  const [newProjectDescription, setNewProjectDescription] = useState("");
   const [savingClient, setSavingClient] = useState(false);
   const [savingProject, setSavingProject] = useState(false);
   const [submittingManual, setSubmittingManual] = useState(false);
@@ -164,14 +162,13 @@ function FreelancerDashboard() {
 
   const handleAddProject = async (force?: "use" | "create", forceId?: string) => {
     const clientId = addProjectClientId || selectedClient;
-    if (!newProjectName.trim() || !clientId || !newProjectDescription.trim()) return;
+    if (!newProjectName.trim() || !clientId) return;
     setSavingProject(true);
     try {
       const result = await findOrCreateProjectFn({
         data: {
           clientId,
           name: newProjectName.trim(),
-          description: newProjectDescription.trim(),
           force,
           forceId,
         },
@@ -190,13 +187,14 @@ function FreelancerDashboard() {
         return;
       }
       setNewProjectName("");
-      setNewProjectDescription("");
       setAddProjectOpen(false);
       setAddProjectClientId("");
       toast.success(result.status === "created" ? "Project created" : "Joined existing project");
       await fetchData();
       setSelectedClient(clientId);
       setSelectedProject(result.id);
+      setShowFullStart(true);
+      setShowManual(false);
     } catch (err) {
       console.error("Add project failed:", err);
       toast.error(err instanceof Error ? err.message : "Failed to add project. Please try signing in again.");
@@ -206,13 +204,12 @@ function FreelancerDashboard() {
   };
 
   const handleAddClient = async (force?: "use" | "create", forceId?: string) => {
-    if (!newClientName.trim() || !newClientDescription.trim()) return;
+    if (!newClientName.trim()) return;
     setSavingClient(true);
     try {
       const result = await findOrCreateClientFn({
         data: {
           name: newClientName.trim(),
-          description: newClientDescription.trim(),
           force,
           forceId,
         },
@@ -230,12 +227,13 @@ function FreelancerDashboard() {
         return;
       }
       setNewClientName("");
-      setNewClientDescription("");
       setAddClientOpen(false);
       toast.success(result.status === "created" ? "Client added" : "Joined existing client");
       await fetchData();
       setSelectedClient(result.id);
       setSelectedProject("");
+      setShowFullStart(true);
+      setShowManual(false);
     } catch (err) {
       console.error("Add client failed:", err);
       toast.error(err instanceof Error ? err.message : "Failed to add client. Please try signing in again.");
@@ -551,7 +549,6 @@ function FreelancerDashboard() {
         setAddProjectOpen(o);
         if (!o) {
           setNewProjectName("");
-          setNewProjectDescription("");
           setSavingProject(false);
         }
       }}>
@@ -576,18 +573,9 @@ function FreelancerDashboard() {
               <Input value={newProjectName} onChange={e => setNewProjectName(e.target.value)} placeholder="e.g. Website Redesign" />
               <p className="text-xs text-muted-foreground">If a project with this name already exists for the client, you'll join it.</p>
             </div>
-            <div className="space-y-2">
-              <Label>Description <span className="text-destructive">*</span></Label>
-              <Textarea
-                value={newProjectDescription}
-                onChange={e => setNewProjectDescription(e.target.value)}
-                placeholder="What is this project about?"
-                rows={2}
-              />
-            </div>
           </div>
           <DialogFooter>
-            <Button onClick={() => handleAddProject()} disabled={!newProjectName.trim() || !addProjectClientId || !newProjectDescription.trim() || savingProject}>
+            <Button onClick={() => handleAddProject()} disabled={!newProjectName.trim() || !addProjectClientId || savingProject}>
               {savingProject && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               {savingProject ? "Saving…" : "Add"}
             </Button>
@@ -600,7 +588,6 @@ function FreelancerDashboard() {
         setAddClientOpen(o);
         if (!o) {
           setNewClientName("");
-          setNewClientDescription("");
           setSavingClient(false);
         }
       }}>
@@ -615,18 +602,9 @@ function FreelancerDashboard() {
               <Input value={newClientName} onChange={e => setNewClientName(e.target.value)} placeholder="e.g. Acme Inc" autoFocus />
               <p className="text-xs text-muted-foreground">If a client with this name already exists, you'll join it.</p>
             </div>
-            <div className="space-y-2">
-              <Label>Description <span className="text-destructive">*</span></Label>
-              <Textarea
-                value={newClientDescription}
-                onChange={e => setNewClientDescription(e.target.value)}
-                placeholder="Briefly describe this client"
-                rows={2}
-              />
-            </div>
           </div>
           <DialogFooter>
-            <Button onClick={() => handleAddClient()} disabled={!newClientName.trim() || !newClientDescription.trim() || savingClient}>
+            <Button onClick={() => handleAddClient()} disabled={!newClientName.trim() || savingClient}>
               {savingClient && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               {savingClient ? "Saving…" : "Add"}
             </Button>
