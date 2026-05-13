@@ -72,6 +72,7 @@ export type Database = {
           code: string | null
           created_at: string
           created_by: string | null
+          description: string | null
           id: string
           name: string
           status: Database["public"]["Enums"]["entity_status"]
@@ -80,6 +81,7 @@ export type Database = {
           code?: string | null
           created_at?: string
           created_by?: string | null
+          description?: string | null
           id?: string
           name: string
           status?: Database["public"]["Enums"]["entity_status"]
@@ -88,6 +90,7 @@ export type Database = {
           code?: string | null
           created_at?: string
           created_by?: string | null
+          description?: string | null
           id?: string
           name?: string
           status?: Database["public"]["Enums"]["entity_status"]
