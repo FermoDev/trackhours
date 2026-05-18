@@ -333,6 +333,49 @@ function FreelancerDashboard() {
         </div>
       )}
 
+      {/* Manage own clients/projects */}
+      {(myProjects.length > 0 || myClients.length > 0) && (
+        <Card>
+          <CardContent className="pt-5 pb-4 space-y-4">
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Manage your clients & projects</p>
+            {myClients.length > 0 && (
+              <div className="space-y-1.5">
+                <p className="text-xs text-muted-foreground">Clients you created</p>
+                <div className="flex flex-wrap gap-2">
+                  {myClients.map(c => (
+                    <div key={c.id} className="inline-flex items-center gap-1 rounded-lg border px-2.5 py-1 text-sm">
+                      <span>{c.name}</span>
+                      <Button variant="ghost" size="icon" className="h-6 w-6" disabled={deleting === c.id} onClick={() => handleDeleteClient(c.id, c.name)} title="Delete client">
+                        {deleting === c.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3 w-3" />}
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            {myProjects.length > 0 && (
+              <div className="space-y-1.5">
+                <p className="text-xs text-muted-foreground">Projects you created</p>
+                <div className="flex flex-wrap gap-2">
+                  {myProjects.map(p => {
+                    const clientName = clients.find(c => c.id === p.client_id)?.name || "—";
+                    return (
+                      <div key={p.id} className="inline-flex items-center gap-1 rounded-lg border px-2.5 py-1 text-sm">
+                        <span>{p.name}</span>
+                        <span className="text-xs text-muted-foreground">· {clientName}</span>
+                        <Button variant="ghost" size="icon" className="h-6 w-6" disabled={deleting === p.id} onClick={() => handleDeleteProject(p.id, p.name)} title="Delete project">
+                          {deleting === p.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3 w-3" />}
+                        </Button>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
       {/* Active timer display */}
       {activeEntry && (
         <Card className="border-timer/30 bg-timer/5">
