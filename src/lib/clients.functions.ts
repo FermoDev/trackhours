@@ -83,3 +83,45 @@ export const mergeProjects = createServerFn({ method: "POST" })
     if (!(await isAdmin(context.userId))) return { success: false as const, error: "Unauthorized" };
     return mergeProjectsForAdmin(data.sourceId, data.targetId);
   });
+
+export const deleteProject = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z.object({ projectId: z.string().uuid() }).parse(input)
+  )
+  .handler(async ({ data, context }) => {
+    const { error } = await context.supabase
+      .from("projects")
+      .delete()
+      .eq("id", data.projectId);
+    if (error) {
+      return { success: false as const, error: "You can only delete projects you created." };
+    }
+    await context.supabase.from("activity_logs").insert({
+      user_id: context.userId,
+      action: "project.deleted",
+      metadata: { project_id: data.projectId },
+    });
+    return { success: true as const };
+  });
+
+export const deleteClient = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z.object({ clientId: z.string().uuid() }).parse(input)
+  )
+  .handler(async ({ data, context }) => {
+    const { error } = await context.supabase
+      .from("clients")
+      .delete()
+      .eq("id", data.clientId);
+    if (error) {
+      return { success: false as const, error: "You can only delete clients you created." };
+    }
+    await context.supabase.from("activity_logs").insert({
+      user_id: context.userId,
+      action: "client.deleted",
+      metadata: { client_id: data.clientId },
+    });
+    return { success: true as const };
+  });

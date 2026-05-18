@@ -166,7 +166,7 @@ function AdminClientsPage() {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete "{deleteTarget?.name}"?</AlertDialogTitle>
-            <AlertDialogDescription>This will permanently remove this client. This cannot be undone. If the client has linked projects or time entries, deletion will fail.</AlertDialogDescription>
+            <AlertDialogDescription>This will permanently remove this client, along with all its projects and time entries. This cannot be undone.</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>

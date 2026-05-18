@@ -1,27 +1,43 @@
-## Problem
+## Goal
+Let any authenticated user delete projects (and similarly clients) they have access to, not just admins.
 
-The previous migration (`20260518122522_…_security_hardening`) revoked `EXECUTE` on `public.has_role(uuid, app_role)` and `public.get_user_role(uuid)` from the `authenticated` and `anon` roles.
+## Current state
+- `projects` table RLS only allows DELETE for admins (`Admins can delete projects` + `Admins full access to projects`).
+- `clients` table is the same.
+- Freelancers see projects they created or are assigned to, but cannot remove them — even ones they created by mistake.
 
-These functions are referenced by RLS policies on almost every table (`user_roles`, `profiles`, `clients`, `projects`, `time_entries`, `client_assignments`, `project_assignments`, `activity_logs`). When the policy is evaluated for a logged-in user, Postgres tries to call `has_role` and fails with a permission-denied error — so the admin's queries silently return nothing and the admin UI looks empty.
+## Proposed changes
 
-Verified in DB: `sami@fermo.io` is correctly assigned role `admin` in `user_roles`. The bug is purely in the permission grants.
+### 1. Database migration (RLS)
+Add per-user DELETE policies:
 
-`has_role` and `get_user_role` are `SECURITY DEFINER` with a locked `search_path` — they are safe to expose to `authenticated`. That's the whole point of the recommended user-roles pattern.
+- **projects**: allow DELETE when `created_by = auth.uid()` OR user is admin (already covered by admin ALL policy).
+- **clients**: allow DELETE when `created_by = auth.uid()` AND no other user has time entries / assignments on it, OR user is admin. This prevents one user deleting a client another user is actively tracking against.
+- Add ON DELETE cleanup: when a project is deleted, also remove its `project_assignments` and `time_entries` rows (cascade via trigger or explicit policy + cascade). Same for clients.
 
-The auto-assign trigger functions (`auto_assign_client_creator`, `auto_assign_project_creator`) are also fine to keep restricted because they are only invoked by triggers (which run as the table owner), not called directly by clients. Same for `handle_new_user`.
+Safety rule for clients: only the creator can delete, and only if they're the *only* user with data on it. Otherwise show "contact admin to delete".
 
-## Fix
+### 2. Server functions (`src/lib/clients.functions.ts`)
+- Add `deleteProject({ projectId })` — checks auth, calls `supabase.from('projects').delete()`. RLS enforces who can actually delete.
+- Add `deleteClient({ clientId })` — same pattern.
+- Both return `{ success, error }` shape; surface friendly error if RLS blocks.
 
-One new migration that re-grants `EXECUTE` on the two role-check functions to `authenticated` (and `anon`, harmless and matches Supabase defaults):
+### 3. UI
+- **Projects list** (user-facing + admin): add a delete button (trash icon) on each row with a confirm dialog ("Delete project X? This removes all time entries on it."). Wire to `deleteProject` server fn, then invalidate the projects query.
+- **Clients list**: same pattern, with the stricter confirm copy ("Only possible if you're the only user with time on this client").
+- Hide/disable the button only when RLS would clearly reject (e.g. freelancer viewing someone else's project via assignment) — otherwise let the server respond and toast the error.
 
-```sql
-GRANT EXECUTE ON FUNCTION public.has_role(uuid, public.app_role) TO anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.get_user_role(uuid) TO anon, authenticated;
-```
+### 4. Activity log
+Insert a row into `activity_logs` on each delete (`action: 'project.deleted'` / `'client.deleted'`, metadata with name + id) so admins keep an audit trail.
 
-No code changes needed. After approval and migration run, the admin dashboard, user list, client/project admin pages, and any other RLS-gated data will become visible again to `sami@fermo.io` and any other admin.
+## Out of scope
+- No changes to roles, auth, or who can *create* clients/projects.
+- No soft-delete / archive — straight hard delete with cascade. Can revisit if you want a recycle bin.
 
-## Verification
+## Files touched
+- new migration under `supabase/migrations/`
+- `src/lib/clients.functions.ts` (+ `clients.server.ts` if helpers needed)
+- projects list route (`src/routes/_authenticated.projects.tsx` or wherever the list lives) and admin equivalents
+- clients list route + admin equivalent
 
-1. Reload `/admin` as `sami@fermo.io` — admin sidebar entries and lists populate.
-2. Freelancer accounts should also stop seeing empty client/project lists (the same policies failed for them too on any branch with `OR has_role(...)`).
+Confirm and I'll implement, or tell me if you want clients excluded / soft-delete instead.

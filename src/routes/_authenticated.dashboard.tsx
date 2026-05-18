@@ -15,13 +15,13 @@ import { Calendar } from "@/components/ui/calendar";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Play, Square, Clock, Plus, RotateCcw, Zap, Pause, CalendarIcon, Loader2 } from "lucide-react";
+import { Play, Square, Clock, Plus, RotateCcw, Zap, Pause, CalendarIcon, Loader2, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import type { Tables } from "@/integrations/supabase/types";
 import { DeleteEntryButton } from "@/components/DeleteEntryButton";
 import { useServerFn } from "@tanstack/react-start";
-import { findOrCreateClient, findOrCreateProject } from "@/lib/clients.functions";
+import { findOrCreateClient, findOrCreateProject, deleteProject, deleteClient } from "@/lib/clients.functions";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   component: FreelancerDashboard,
@@ -55,6 +55,38 @@ function FreelancerDashboard() {
   const [timerDesc, setTimerDesc] = useState("");
   const findOrCreateClientFn = useServerFn(findOrCreateClient);
   const findOrCreateProjectFn = useServerFn(findOrCreateProject);
+  const deleteProjectFn = useServerFn(deleteProject);
+  const deleteClientFn = useServerFn(deleteClient);
+  const [deleting, setDeleting] = useState<string | null>(null);
+
+  const myProjects = useMemo(
+    () => projects.filter(p => p.created_by === user?.id),
+    [projects, user?.id]
+  );
+  const myClients = useMemo(
+    () => clients.filter(c => c.created_by === user?.id),
+    [clients, user?.id]
+  );
+
+  const handleDeleteProject = async (id: string, name: string) => {
+    if (!confirm(`Delete project "${name}"? All your time entries on it will also be removed.`)) return;
+    setDeleting(id);
+    const res = await deleteProjectFn({ data: { projectId: id } });
+    setDeleting(null);
+    if (!res.success) { toast.error(res.error); return; }
+    toast.success("Project deleted");
+    fetchData();
+  };
+
+  const handleDeleteClient = async (id: string, name: string) => {
+    if (!confirm(`Delete client "${name}"? All its projects and your time entries will also be removed.`)) return;
+    setDeleting(id);
+    const res = await deleteClientFn({ data: { clientId: id } });
+    setDeleting(null);
+    if (!res.success) { toast.error(res.error); return; }
+    toast.success("Client deleted");
+    fetchData();
+  };
 
   const TARGET_DAY = 480; // 8h
   const TARGET_WEEK = 2400; // 40h
@@ -299,6 +331,49 @@ function FreelancerDashboard() {
             </Button>
           </div>
         </div>
+      )}
+
+      {/* Manage own clients/projects */}
+      {(myProjects.length > 0 || myClients.length > 0) && (
+        <Card>
+          <CardContent className="pt-5 pb-4 space-y-4">
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Manage your clients & projects</p>
+            {myClients.length > 0 && (
+              <div className="space-y-1.5">
+                <p className="text-xs text-muted-foreground">Clients you created</p>
+                <div className="flex flex-wrap gap-2">
+                  {myClients.map(c => (
+                    <div key={c.id} className="inline-flex items-center gap-1 rounded-lg border px-2.5 py-1 text-sm">
+                      <span>{c.name}</span>
+                      <Button variant="ghost" size="icon" className="h-6 w-6" disabled={deleting === c.id} onClick={() => handleDeleteClient(c.id, c.name)} title="Delete client">
+                        {deleting === c.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3 w-3" />}
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            {myProjects.length > 0 && (
+              <div className="space-y-1.5">
+                <p className="text-xs text-muted-foreground">Projects you created</p>
+                <div className="flex flex-wrap gap-2">
+                  {myProjects.map(p => {
+                    const clientName = clients.find(c => c.id === p.client_id)?.name || "—";
+                    return (
+                      <div key={p.id} className="inline-flex items-center gap-1 rounded-lg border px-2.5 py-1 text-sm">
+                        <span>{p.name}</span>
+                        <span className="text-xs text-muted-foreground">· {clientName}</span>
+                        <Button variant="ghost" size="icon" className="h-6 w-6" disabled={deleting === p.id} onClick={() => handleDeleteProject(p.id, p.name)} title="Delete project">
+                          {deleting === p.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3 w-3" />}
+                        </Button>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
       )}
 
       {/* Active timer display */}
