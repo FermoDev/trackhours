@@ -15,14 +15,13 @@ import { Calendar } from "@/components/ui/calendar";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Play, Square, Clock, Plus, RotateCcw, Zap, Pause, CalendarIcon, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import type { Tables } from "@/integrations/supabase/types";
 import { DeleteEntryButton } from "@/components/DeleteEntryButton";
 import { useServerFn } from "@tanstack/react-start";
-import { findOrCreateClient, findOrCreateProject } from "@/server/clients.functions";
+import { findOrCreateClient, findOrCreateProject } from "@/lib/clients.functions";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   component: FreelancerDashboard,
@@ -54,13 +53,6 @@ function FreelancerDashboard() {
   const [submittingManual, setSubmittingManual] = useState(false);
   const [pendingQuickStart, setPendingQuickStart] = useState<string | null>(null);
   const [timerDesc, setTimerDesc] = useState("");
-  // Fuzzy-match confirmation state
-  const [confirmState, setConfirmState] = useState<
-    | { kind: "client"; typed: string; suggestion: { id: string; name: string } }
-    | { kind: "project"; typed: string; suggestion: { id: string; name: string }; clientId: string }
-    | null
-  >(null);
-
   const findOrCreateClientFn = useServerFn(findOrCreateClient);
   const findOrCreateProjectFn = useServerFn(findOrCreateProject);
 
@@ -160,7 +152,7 @@ function FreelancerDashboard() {
     setShowManual(false);
   };
 
-  const handleAddProject = async (force?: "use" | "create", forceId?: string) => {
+  const handleAddProject = async () => {
     const clientId = addProjectClientId || selectedClient;
     if (!newProjectName.trim() || !clientId) return;
     setSavingProject(true);
@@ -169,21 +161,10 @@ function FreelancerDashboard() {
         data: {
           clientId,
           name: newProjectName.trim(),
-          force,
-          forceId,
         },
       });
       if (!result.success) {
         toast.error(result.error || "Failed to add project");
-        return;
-      }
-      if (result.status === "needs_confirmation") {
-        setConfirmState({
-          kind: "project",
-          typed: newProjectName.trim(),
-          suggestion: result.suggestion,
-          clientId,
-        });
         return;
       }
       setNewProjectName("");
@@ -203,27 +184,17 @@ function FreelancerDashboard() {
     }
   };
 
-  const handleAddClient = async (force?: "use" | "create", forceId?: string) => {
+  const handleAddClient = async () => {
     if (!newClientName.trim()) return;
     setSavingClient(true);
     try {
       const result = await findOrCreateClientFn({
         data: {
           name: newClientName.trim(),
-          force,
-          forceId,
         },
       });
       if (!result.success) {
         toast.error(result.error || "Failed to add client");
-        return;
-      }
-      if (result.status === "needs_confirmation") {
-        setConfirmState({
-          kind: "client",
-          typed: newClientName.trim(),
-          suggestion: result.suggestion,
-        });
         return;
       }
       setNewClientName("");
@@ -239,27 +210,6 @@ function FreelancerDashboard() {
       toast.error(err instanceof Error ? err.message : "Failed to add client. Please try signing in again.");
     } finally {
       setSavingClient(false);
-    }
-  };
-
-  const handleConfirmUseExisting = async () => {
-    if (!confirmState) return;
-    const cs = confirmState;
-    setConfirmState(null);
-    if (cs.kind === "client") {
-      await handleAddClient("use", cs.suggestion.id);
-    } else {
-      await handleAddProject("use", cs.suggestion.id);
-    }
-  };
-  const handleConfirmCreateNew = async () => {
-    if (!confirmState) return;
-    const cs = confirmState;
-    setConfirmState(null);
-    if (cs.kind === "client") {
-      await handleAddClient("create");
-    } else {
-      await handleAddProject("create");
     }
   };
 
