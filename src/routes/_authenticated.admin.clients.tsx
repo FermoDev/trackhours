@@ -14,7 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { toast } from "sonner";
 import type { Tables } from "@/integrations/supabase/types";
 import { useServerFn } from "@tanstack/react-start";
-import { mergeClients } from "@/server/clients.functions";
+import { mergeClients } from "@/lib/clients.functions";
 import { DownloadClientTimesheetDialog } from "@/components/DownloadClientTimesheetDialog";
 
 export const Route = createFileRoute("/_authenticated/admin/clients")({
