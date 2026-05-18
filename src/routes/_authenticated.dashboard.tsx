@@ -562,29 +562,6 @@ function FreelancerDashboard() {
         </DialogContent>
       </Dialog>
 
-      {/* Fuzzy match confirmation */}
-      <AlertDialog open={!!confirmState} onOpenChange={(o) => !o && setConfirmState(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Did you mean an existing {confirmState?.kind}?</AlertDialogTitle>
-            <AlertDialogDescription asChild>
-              <div className="space-y-2 text-sm">
-                <p>You typed <strong>"{confirmState?.typed}"</strong>.</p>
-                <p>We found a similar {confirmState?.kind}: <strong>"{confirmState?.suggestion.name}"</strong>.</p>
-                <p className="text-muted-foreground">If this is the same {confirmState?.kind}, joining the existing one keeps everyone's time entries together.</p>
-              </div>
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel onClick={handleConfirmCreateNew}>
-              Create new "{confirmState?.typed}"
-            </AlertDialogCancel>
-            <AlertDialogAction onClick={handleConfirmUseExisting}>
-              Use "{confirmState?.suggestion.name}"
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   );
 }
