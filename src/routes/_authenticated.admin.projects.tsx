@@ -13,7 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import type { Tables } from "@/integrations/supabase/types";
 import { useServerFn } from "@tanstack/react-start";
-import { mergeProjects } from "@/server/clients.functions";
+import { mergeProjects } from "@/lib/clients.functions";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/admin/projects")({
