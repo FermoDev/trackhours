@@ -15,13 +15,13 @@ import { Calendar } from "@/components/ui/calendar";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Play, Square, Clock, Plus, RotateCcw, Zap, Pause, CalendarIcon, Loader2 } from "lucide-react";
+import { Play, Square, Clock, Plus, RotateCcw, Zap, Pause, CalendarIcon, Loader2, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import type { Tables } from "@/integrations/supabase/types";
 import { DeleteEntryButton } from "@/components/DeleteEntryButton";
 import { useServerFn } from "@tanstack/react-start";
-import { findOrCreateClient, findOrCreateProject } from "@/lib/clients.functions";
+import { findOrCreateClient, findOrCreateProject, deleteProject, deleteClient } from "@/lib/clients.functions";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   component: FreelancerDashboard,
@@ -55,6 +55,38 @@ function FreelancerDashboard() {
   const [timerDesc, setTimerDesc] = useState("");
   const findOrCreateClientFn = useServerFn(findOrCreateClient);
   const findOrCreateProjectFn = useServerFn(findOrCreateProject);
+  const deleteProjectFn = useServerFn(deleteProject);
+  const deleteClientFn = useServerFn(deleteClient);
+  const [deleting, setDeleting] = useState<string | null>(null);
+
+  const myProjects = useMemo(
+    () => projects.filter(p => p.created_by === user?.id),
+    [projects, user?.id]
+  );
+  const myClients = useMemo(
+    () => clients.filter(c => c.created_by === user?.id),
+    [clients, user?.id]
+  );
+
+  const handleDeleteProject = async (id: string, name: string) => {
+    if (!confirm(`Delete project "${name}"? All your time entries on it will also be removed.`)) return;
+    setDeleting(id);
+    const res = await deleteProjectFn({ data: { projectId: id } });
+    setDeleting(null);
+    if (!res.success) { toast.error(res.error); return; }
+    toast.success("Project deleted");
+    fetchData();
+  };
+
+  const handleDeleteClient = async (id: string, name: string) => {
+    if (!confirm(`Delete client "${name}"? All its projects and your time entries will also be removed.`)) return;
+    setDeleting(id);
+    const res = await deleteClientFn({ data: { clientId: id } });
+    setDeleting(null);
+    if (!res.success) { toast.error(res.error); return; }
+    toast.success("Client deleted");
+    fetchData();
+  };
 
   const TARGET_DAY = 480; // 8h
   const TARGET_WEEK = 2400; // 40h
