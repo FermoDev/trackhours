@@ -7,13 +7,13 @@ import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Loader2 } from "lucide-react";
+import { Plus, Loader2, Trash2 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import type { Tables } from "@/integrations/supabase/types";
 import { useServerFn } from "@tanstack/react-start";
-import { mergeProjects } from "@/lib/clients.functions";
+import { mergeProjects, deleteProject } from "@/lib/clients.functions";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/admin/projects")({
@@ -39,6 +39,8 @@ function AdminProjectsPage() {
   const [merging, setMerging] = useState(false);
   const [adding, setAdding] = useState(false);
   const mergeProjectsFn = useServerFn(mergeProjects);
+  const deleteProjectFn = useServerFn(deleteProject);
+  const [deleting, setDeleting] = useState<string | null>(null);
 
   const fetchProjects = async () => {
     const { data } = await supabase.from("projects").select("*, clients(name)");
@@ -70,6 +72,16 @@ function AdminProjectsPage() {
 
   const toggleStatus = async (project: Tables<"projects">) => {
     await supabase.from("projects").update({ status: project.status === "active" ? "inactive" as const : "active" as const }).eq("id", project.id);
+    fetchProjects();
+  };
+
+  const handleDelete = async (project: Tables<"projects">) => {
+    if (!confirm(`Delete project "${project.name}"? All time entries on it will also be removed.`)) return;
+    setDeleting(project.id);
+    const res = await deleteProjectFn({ data: { projectId: project.id } });
+    setDeleting(null);
+    if (!res.success) { toast.error(res.error); return; }
+    toast.success("Project deleted");
     fetchProjects();
   };
 
@@ -140,6 +152,9 @@ function AdminProjectsPage() {
                     <div className="flex items-center justify-end gap-1">
                       <Button variant="ghost" size="sm" onClick={() => toggleStatus(p)}>{p.status === "active" ? "Archive" : "Activate"}</Button>
                       <Button variant="ghost" size="sm" onClick={() => { setMergeSource(p); setMergeTargetId(""); }}>Merge</Button>
+                      <Button variant="ghost" size="sm" disabled={deleting === p.id} onClick={() => handleDelete(p)} title="Delete">
+                        {deleting === p.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                      </Button>
                     </div>
                   </TableCell>
                 </TableRow>
