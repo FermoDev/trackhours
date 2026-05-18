@@ -27,15 +27,29 @@ const SIMILARITY_THRESHOLD = 0.6;
 
 type FindOrCreateResult =
   | { success: true; status: "joined" | "created"; id: string; name: string }
-  | { success: true; status: "needs_confirmation"; suggestion: { id: string; name: string } }
   | { success: false; error: string };
+
+const normalizeName = (value: string) => value.trim().replace(/\s+/g, " ");
+
+async function assignClient(userId: string, clientId: string) {
+  await supabaseAdmin
+    .from("client_assignments")
+    .upsert({ user_id: userId, client_id: clientId }, { onConflict: "user_id,client_id", ignoreDuplicates: true });
+}
+
+async function assignProject(userId: string, projectId: string, clientId: string) {
+  await Promise.all([
+    supabaseAdmin
+      .from("project_assignments")
+      .upsert({ user_id: userId, project_id: projectId }, { onConflict: "user_id,project_id", ignoreDuplicates: true }),
+    assignClient(userId, clientId),
+  ]);
+}
 
 /**
  * Find a client by case-insensitive name, or create it.
- * - Exact (case-insensitive) match: silently join.
- * - Fuzzy (trigram) match >= threshold: ask user to confirm.
- * - No match: create.
- * `force: "use"` joins the given id; `force: "create"` skips the fuzzy check.
+ * - Exact or fuzzy match: join the existing client.
+ * - No match: create and assign the creator.
  */
 export const findOrCreateClient = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -44,30 +58,13 @@ export const findOrCreateClient = createServerFn({ method: "POST" })
       .object({
         name: nameSchema,
         description: descriptionSchema.optional(),
-        force: z.enum(["use", "create"]).optional(),
-        forceId: z.string().uuid().optional(),
       })
       .parse(input)
   )
   .handler(async ({ data, context }): Promise<FindOrCreateResult> => {
     const { userId } = context;
-    const trimmed = data.name.trim();
+    const trimmed = normalizeName(data.name);
     const description = data.description?.trim() || null;
-
-    // force: "use" — caller confirmed an existing match
-    if (data.force === "use" && data.forceId) {
-      const { data: existing } = await supabaseAdmin
-        .from("clients")
-        .select("id, name")
-        .eq("id", data.forceId)
-        .maybeSingle();
-      if (!existing) return { success: false, error: "Client no longer exists" };
-      await supabaseAdmin
-        .from("client_assignments")
-        .insert({ user_id: userId, client_id: existing.id })
-        .then(() => undefined, () => undefined);
-      return { success: true, status: "joined", id: existing.id, name: existing.name };
-    }
 
     // Look up existing by case-insensitive name
     const { data: existing, error: lookupError } = await supabaseAdmin
@@ -82,30 +79,22 @@ export const findOrCreateClient = createServerFn({ method: "POST" })
     }
 
     if (existing) {
-      await supabaseAdmin
-        .from("client_assignments")
-        .insert({ user_id: userId, client_id: existing.id })
-        .then(() => undefined, () => undefined);
+      await assignClient(userId, existing.id);
       return { success: true, status: "joined", id: existing.id, name: existing.name };
     }
 
-    // Fuzzy match (only when not forcing create)
-    if (data.force !== "create") {
-      const { data: rows } = await supabaseAdmin
-        .from("clients")
-        .select("id, name")
-        .eq("status", "active");
-      if (rows && rows.length > 0) {
-        const best = rows
-          .map((r) => ({ ...r, score: trigramSim(trimmed, r.name) }))
-          .sort((a, b) => b.score - a.score)[0];
-        if (best && best.score >= SIMILARITY_THRESHOLD) {
-          return {
-            success: true,
-            status: "needs_confirmation",
-            suggestion: { id: best.id, name: best.name },
-          };
-        }
+    // Fuzzy match: join the closest active client to avoid duplicates.
+    const { data: rows } = await supabaseAdmin
+      .from("clients")
+      .select("id, name")
+      .eq("status", "active");
+    if (rows && rows.length > 0) {
+      const best = rows
+        .map((r) => ({ ...r, score: trigramSim(trimmed, r.name) }))
+        .sort((a, b) => b.score - a.score)[0];
+      if (best && best.score >= SIMILARITY_THRESHOLD) {
+        await assignClient(userId, best.id);
+        return { success: true, status: "joined", id: best.id, name: best.name };
       }
     }
 
@@ -124,20 +113,13 @@ export const findOrCreateClient = createServerFn({ method: "POST" })
         .limit(1)
         .maybeSingle();
       if (retry) {
-        await supabaseAdmin
-          .from("client_assignments")
-          .insert({ user_id: userId, client_id: retry.id })
-          .then(() => undefined, () => undefined);
+        await assignClient(userId, retry.id);
         return { success: true, status: "joined", id: retry.id, name: retry.name };
       }
       return { success: false, error: insertError?.message || "Failed to create client" };
     }
 
-    // Auto-assign creator (so RLS sees it even if created_by changes later)
-    await supabaseAdmin
-      .from("client_assignments")
-      .insert({ user_id: userId, client_id: created.id })
-      .then(() => undefined, () => undefined);
+    await assignClient(userId, created.id);
     return { success: true, status: "created", id: created.id, name: created.name };
   });
 
