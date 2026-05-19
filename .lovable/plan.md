@@ -1,43 +1,34 @@
 ## Goal
-Let any authenticated user delete projects (and similarly clients) they have access to, not just admins.
+Replace the blue primary accent (`oklch(0.45 0.18 260)` and its dark-mode variant `oklch(0.6 0.2 260)`) with green `#00ba6a` across the app.
 
-## Current state
-- `projects` table RLS only allows DELETE for admins (`Admins can delete projects` + `Admins full access to projects`).
-- `clients` table is the same.
-- Freelancers see projects they created or are assigned to, but cannot remove them — even ones they created by mistake.
+## Approach
+All blue UI comes from a small set of semantic tokens in `src/styles.css`. Update those tokens — every button, link, ring, chart-1 bar, sidebar accent, and focus state will pick it up automatically. No component files need to change.
 
-## Proposed changes
+## Token conversion
+`#00ba6a` in OKLCH ≈ `oklch(0.68 0.17 155)`.
+- Light mode primary: `oklch(0.62 0.17 155)` (slightly deeper so white text stays readable on buttons)
+- Dark mode primary: `oklch(0.72 0.17 155)` (brighter to pop against dark bg)
 
-### 1. Database migration (RLS)
-Add per-user DELETE policies:
+## Changes (single file: `src/styles.css`)
 
-- **projects**: allow DELETE when `created_by = auth.uid()` OR user is admin (already covered by admin ALL policy).
-- **clients**: allow DELETE when `created_by = auth.uid()` AND no other user has time entries / assignments on it, OR user is admin. This prevents one user deleting a client another user is actively tracking against.
-- Add ON DELETE cleanup: when a project is deleted, also remove its `project_assignments` and `time_entries` rows (cascade via trigger or explicit policy + cascade). Same for clients.
+**`:root` (light mode) — update these tokens to the green hue (155):**
+- `--primary`
+- `--ring`
+- `--chart-1`
+- `--sidebar-primary`
+- `--sidebar-ring`
 
-Safety rule for clients: only the creator can delete, and only if they're the *only* user with data on it. Otherwise show "contact admin to delete".
+**`.dark` — same set, using the dark-mode green:**
+- `--primary`
+- `--ring`
+- `--chart-1`
+- `--sidebar-primary`
+- `--sidebar-ring`
 
-### 2. Server functions (`src/lib/clients.functions.ts`)
-- Add `deleteProject({ projectId })` — checks auth, calls `supabase.from('projects').delete()`. RLS enforces who can actually delete.
-- Add `deleteClient({ clientId })` — same pattern.
-- Both return `{ success, error }` shape; surface friendly error if RLS blocks.
-
-### 3. UI
-- **Projects list** (user-facing + admin): add a delete button (trash icon) on each row with a confirm dialog ("Delete project X? This removes all time entries on it."). Wire to `deleteProject` server fn, then invalidate the projects query.
-- **Clients list**: same pattern, with the stricter confirm copy ("Only possible if you're the only user with time on this client").
-- Hide/disable the button only when RLS would clearly reject (e.g. freelancer viewing someone else's project via assignment) — otherwise let the server respond and toast the error.
-
-### 4. Activity log
-Insert a row into `activity_logs` on each delete (`action: 'project.deleted'` / `'client.deleted'`, metadata with name + id) so admins keep an audit trail.
+**Leave untouched:**
+- `--timer` / `--success` (already green — independent semantic meaning)
+- `--destructive`, `--warning`, neutrals, other chart colors
+- `--primary-foreground` (stays near-white; contrast remains AA on the new green)
 
 ## Out of scope
-- No changes to roles, auth, or who can *create* clients/projects.
-- No soft-delete / archive — straight hard delete with cascade. Can revisit if you want a recycle bin.
-
-## Files touched
-- new migration under `supabase/migrations/`
-- `src/lib/clients.functions.ts` (+ `clients.server.ts` if helpers needed)
-- projects list route (`src/routes/_authenticated.projects.tsx` or wherever the list lives) and admin equivalents
-- clients list route + admin equivalent
-
-Confirm and I'll implement, or tell me if you want clients excluded / soft-delete instead.
+No component-level edits. No logo/image asset changes. If any hardcoded blue hex exists in a component (none expected based on the design-system rule), that would be a follow-up.
