@@ -97,6 +97,122 @@ export type Database = {
         }
         Relationships: []
       }
+      invoice_line_items: {
+        Row: {
+          amount_cents: number
+          created_at: string
+          description: string
+          hours: number
+          id: string
+          invoice_id: string
+          project_id: string | null
+          rate_cents: number
+          sort_order: number
+        }
+        Insert: {
+          amount_cents?: number
+          created_at?: string
+          description: string
+          hours?: number
+          id?: string
+          invoice_id: string
+          project_id?: string | null
+          rate_cents?: number
+          sort_order?: number
+        }
+        Update: {
+          amount_cents?: number
+          created_at?: string
+          description?: string
+          hours?: number
+          id?: string
+          invoice_id?: string
+          project_id?: string | null
+          rate_cents?: number
+          sort_order?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoice_line_items_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoice_line_items_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      invoices: {
+        Row: {
+          client_id: string
+          created_at: string
+          currency: string
+          due_date: string | null
+          id: string
+          invoice_number: string
+          issue_date: string
+          notes: string | null
+          pdf_generated_at: string | null
+          period_end: string | null
+          period_start: string | null
+          status: Database["public"]["Enums"]["invoice_status"]
+          subtotal_cents: number
+          total_cents: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          client_id: string
+          created_at?: string
+          currency?: string
+          due_date?: string | null
+          id?: string
+          invoice_number: string
+          issue_date?: string
+          notes?: string | null
+          pdf_generated_at?: string | null
+          period_end?: string | null
+          period_start?: string | null
+          status?: Database["public"]["Enums"]["invoice_status"]
+          subtotal_cents?: number
+          total_cents?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          client_id?: string
+          created_at?: string
+          currency?: string
+          due_date?: string | null
+          id?: string
+          invoice_number?: string
+          issue_date?: string
+          notes?: string | null
+          pdf_generated_at?: string | null
+          period_end?: string | null
+          period_start?: string | null
+          status?: Database["public"]["Enums"]["invoice_status"]
+          subtotal_cents?: number
+          total_cents?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoices_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           created_at: string
@@ -208,6 +324,7 @@ export type Database = {
           entry_date: string
           entry_mode: Database["public"]["Enums"]["entry_mode"]
           id: string
+          invoice_id: string | null
           project_id: string
           start_time: string | null
           status: Database["public"]["Enums"]["entry_status"]
@@ -224,6 +341,7 @@ export type Database = {
           entry_date?: string
           entry_mode?: Database["public"]["Enums"]["entry_mode"]
           id?: string
+          invoice_id?: string | null
           project_id: string
           start_time?: string | null
           status?: Database["public"]["Enums"]["entry_status"]
@@ -240,6 +358,7 @@ export type Database = {
           entry_date?: string
           entry_mode?: Database["public"]["Enums"]["entry_mode"]
           id?: string
+          invoice_id?: string | null
           project_id?: string
           start_time?: string | null
           status?: Database["public"]["Enums"]["entry_status"]
@@ -252,6 +371,13 @@ export type Database = {
             columns: ["client_id"]
             isOneToOne: false
             referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "time_entries_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "invoices"
             referencedColumns: ["id"]
           },
           {
@@ -305,6 +431,7 @@ export type Database = {
       entity_status: "active" | "inactive"
       entry_mode: "timer" | "manual"
       entry_status: "draft" | "submitted" | "approved"
+      invoice_status: "draft" | "sent" | "paid"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -436,6 +563,7 @@ export const Constants = {
       entity_status: ["active", "inactive"],
       entry_mode: ["timer", "manual"],
       entry_status: ["draft", "submitted", "approved"],
+      invoice_status: ["draft", "sent", "paid"],
     },
   },
 } as const

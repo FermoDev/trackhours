@@ -36,7 +36,7 @@ export const Route = createFileRoute("/_authenticated/admin/users")({
   component: AdminUsersPage,
 });
 
-type AppRole = "admin" | "freelancer" | "manager";
+type AppRole = "admin" | "freelancer";
 
 function AdminUsersPage() {
   const { user } = useAuth();
@@ -225,7 +225,6 @@ function AdminUsersPage() {
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="admin">admin</SelectItem>
-                          <SelectItem value="manager">manager</SelectItem>
                           <SelectItem value="freelancer">freelancer</SelectItem>
                         </SelectContent>
                       </Select>

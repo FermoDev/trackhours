@@ -11,6 +11,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Clock, FileText } from "lucide-react";
 import type { Tables } from "@/integrations/supabase/types";
 import { DeleteEntryButton } from "@/components/DeleteEntryButton";
+import { WeeklyView } from "@/components/WeeklyView";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 export const Route = createFileRoute("/_authenticated/timesheet")({
   component: TimesheetPage,
@@ -23,6 +25,7 @@ type EntryWithRelations = Tables<"time_entries"> & {
 
 function TimesheetPage() {
   const { user } = useAuth();
+  const [view, setView] = useState<"list" | "week">("list");
   const [entries, setEntries] = useState<EntryWithRelations[]>([]);
   const [clients, setClients] = useState<Tables<"clients">[]>([]);
   const [projects, setProjects] = useState<Tables<"projects">[]>([]);
@@ -64,10 +67,18 @@ function TimesheetPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-3 flex-wrap">
         <h1 className="text-2xl font-bold tracking-tight">Timesheet</h1>
+        <Tabs value={view} onValueChange={(v) => setView(v as "list" | "week")}>
+          <TabsList>
+            <TabsTrigger value="list">List</TabsTrigger>
+            <TabsTrigger value="week">Week</TabsTrigger>
+          </TabsList>
+        </Tabs>
       </div>
 
+      {view === "week" ? <WeeklyView /> : (
+      <>
       {/* Summary cards */}
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
         <Card>
@@ -152,6 +163,8 @@ function TimesheetPage() {
           </Table>
         </CardContent>
       </Card>
+      </>
+      )}
     </div>
   );
 }

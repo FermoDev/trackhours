@@ -1,8 +1,8 @@
 import { Link, useLocation } from "@tanstack/react-router";
 import { useAuth } from "@/lib/auth";
 import {
-  Clock, LayoutDashboard, CalendarDays, FileText, Users, Building2,
-  FolderKanban, LinkIcon, BarChart3, LogOut, ChevronLeft, ChevronRight, Menu, X, Settings, UsersRound
+  Clock, LayoutDashboard, FileText, Users, Building2,
+  FolderKanban, LinkIcon, BarChart3, LogOut, ChevronLeft, ChevronRight, Menu, X, Settings, Receipt
 } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -10,15 +10,11 @@ import { Button } from "@/components/ui/button";
 const freelancerNav = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { to: "/timesheet", label: "Timesheet", icon: FileText },
-  { to: "/weekly", label: "Weekly View", icon: CalendarDays },
+  { to: "/invoices", label: "Invoices", icon: Receipt },
 ];
 
 const settingsNav = [
   { to: "/settings", label: "Settings", icon: Settings },
-];
-
-const managerNav = [
-  { to: "/manager", label: "Team Overview", icon: UsersRound },
 ];
 
 const adminNav = [
@@ -38,12 +34,9 @@ export function AppSidebar() {
   const [mobileOpen, setMobileOpen] = useState(false);
 
   const isAdmin = role === "admin";
-  const isManager = role === "manager";
   const navItems = isAdmin
-    ? [...freelancerNav, ...managerNav, ...adminNav, ...settingsNav]
-    : isManager
-      ? [...freelancerNav, ...managerNav, ...settingsNav]
-      : [...freelancerNav, ...settingsNav];
+    ? [...freelancerNav, ...adminNav, ...settingsNav]
+    : [...freelancerNav, ...settingsNav];
 
   const sidebar = (
     <div className={`flex flex-col h-full bg-sidebar border-r border-sidebar-border transition-all duration-200 ${collapsed ? "w-16" : "w-60"}`}>

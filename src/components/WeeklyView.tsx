@@ -1,4 +1,3 @@
-import { createFileRoute } from "@tanstack/react-router";
 import { useAuth } from "@/lib/auth";
 import { supabase } from "@/integrations/supabase/client";
 import { useState, useEffect, useCallback } from "react";
@@ -13,14 +12,10 @@ import { startOfWeek, addDays, format, subWeeks, addWeeks, isWeekend } from "dat
 import type { Tables } from "@/integrations/supabase/types";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 
-export const Route = createFileRoute("/_authenticated/weekly")({
-  component: WeeklyView,
-});
-
 const TARGET_DAY = 480;
 const TARGET_WEEK = 2400;
 
-function WeeklyView() {
+export function WeeklyView() {
   const { user } = useAuth();
   const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date(), { weekStartsOn: 1 }));
   const [entries, setEntries] = useState<Tables<"time_entries">[]>([]);
@@ -107,18 +102,14 @@ function WeeklyView() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <h1 className="text-2xl font-bold tracking-tight">Weekly View</h1>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setWeekStart(subWeeks(weekStart, 1))}><ChevronLeft className="h-4 w-4" /></Button>
-          <span className="text-sm font-medium min-w-[180px] text-center">
-            {format(weekStart, "MMM d")} — {format(addDays(weekStart, 6), "MMM d, yyyy")}
-          </span>
-          <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setWeekStart(addWeeks(weekStart, 1))}><ChevronRight className="h-4 w-4" /></Button>
-        </div>
+      <div className="flex items-center justify-end gap-2">
+        <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setWeekStart(subWeeks(weekStart, 1))}><ChevronLeft className="h-4 w-4" /></Button>
+        <span className="text-sm font-medium min-w-[180px] text-center">
+          {format(weekStart, "MMM d")} — {format(addDays(weekStart, 6), "MMM d, yyyy")}
+        </span>
+        <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setWeekStart(addWeeks(weekStart, 1))}><ChevronRight className="h-4 w-4" /></Button>
       </div>
 
-      {/* Weekly target */}
       <Card>
         <CardContent className="pt-5 pb-4">
           <div className="flex items-center justify-between mb-2">
@@ -129,7 +120,6 @@ function WeeklyView() {
         </CardContent>
       </Card>
 
-      {/* Desktop table */}
       <Card className="hidden md:block">
         <CardContent className="p-0 overflow-x-auto">
           <table className="w-full text-sm">
@@ -200,7 +190,6 @@ function WeeklyView() {
         </CardContent>
       </Card>
 
-      {/* Mobile day-by-day view */}
       <div className="md:hidden space-y-3">
         {days.map(d => {
           const dateStr = format(d, "yyyy-MM-dd");
