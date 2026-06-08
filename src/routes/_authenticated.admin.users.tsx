@@ -12,7 +12,7 @@ import {
   adminUpdateUserRole,
   adminSetUserStatus,
   adminDeleteUser,
-} from "@/server/admin.functions";
+} from "@/lib/admin.functions";
 import { toast } from "sonner";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
