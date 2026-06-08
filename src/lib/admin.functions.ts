@@ -1,10 +1,10 @@
 import { createServerFn } from "@tanstack/react-start";
-import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 type AppRole = "admin" | "freelancer";
 
 async function assertAdmin(userId: string) {
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   const { data } = await supabaseAdmin
     .from("user_roles")
     .select("role")
@@ -14,6 +14,7 @@ async function assertAdmin(userId: string) {
 }
 
 async function countAdmins(): Promise<number> {
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   const { count } = await supabaseAdmin
     .from("user_roles")
     .select("*", { count: "exact", head: true })
