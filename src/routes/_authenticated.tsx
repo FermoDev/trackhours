@@ -2,6 +2,7 @@ import { createFileRoute, Outlet, useNavigate } from "@tanstack/react-router";
 import { useAuth } from "@/lib/auth";
 import { useTimer } from "@/hooks/use-timer";
 import { AppSidebar } from "@/components/AppSidebar";
+import { QuickTimerFab } from "@/components/QuickTimerFab";
 import { useEffect } from "react";
 import { Loader2 } from "lucide-react";
 
@@ -38,6 +39,7 @@ function AuthenticatedLayout() {
           <Outlet />
         </div>
       </main>
+      <QuickTimerFab />
     </div>
   );
 }
