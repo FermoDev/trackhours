@@ -4,7 +4,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Loader2 } from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
-import { getUserStats } from "@/server/admin.functions";
+import { getUserStats } from "@/lib/admin.functions";
 import { authHeaders } from "@/lib/server-auth";
 import { formatDuration } from "@/lib/format";
 import type { Tables } from "@/integrations/supabase/types";
