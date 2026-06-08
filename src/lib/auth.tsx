@@ -36,7 +36,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       supabase.from("user_roles").select("role").eq("user_id", userId).single(),
     ]);
     if (profileRes.data) setProfile(profileRes.data);
-    if (roleRes.data) setRole(roleRes.data.role);
+    if (roleRes.data && roleRes.data.role !== "manager") setRole(roleRes.data.role as AppRole);
   }, []);
 
   const refreshProfile = useCallback(async () => {
