@@ -1,52 +1,25 @@
-## 1. Remove manager role & Team Overview
+# Remove `manager` from `app_role` enum
 
-**DB migration**
-- Demote any users with role `manager` → `freelancer` in `user_roles`.
-- Leave the `app_role` enum value `'manager'` in place (Postgres can't easily drop enum values without rewriting dependent objects). It just won't be assigned anywhere.
+The `manager` role is no longer used by the app but still exists in the DB enum. Postgres can't drop an enum value directly, so we recreate the enum.
 
-**Code deletions**
-- `src/routes/_authenticated.manager.tsx`
-- `src/routes/_authenticated.manager.index.tsx`
-- `src/server/manager.functions.ts`
-- Remove `managerNav` and the `isManager` branch in `src/components/AppSidebar.tsx`.
-- Remove "Manager" option from the role dropdown in `src/routes/_authenticated.admin.users.tsx`.
-- Drop any `role === 'manager'` checks in `src/lib/auth.tsx` and routes.
+## Safety checks
+- All `user_roles` with `role = 'manager'` were already demoted to `freelancer` in the previous migration — the value is unused.
+- Only `user_roles.role` references `app_role`.
+- `public.has_role(uuid, app_role)` takes the enum as a parameter and must be recreated against the new type.
 
-## 2. Merge Timesheet + Weekly View
+## Migration steps (single migration)
 
-- Keep `/timesheet` as the single route. Add a view toggle (List ↔ Week) at the top.
-- Move the existing weekly-grid UI from `_authenticated.weekly.tsx` into a `<WeeklyView />` component rendered when the toggle is "Week".
-- Delete `_authenticated.weekly.tsx` and the sidebar entry for it.
+1. Safety net: `UPDATE public.user_roles SET role = 'freelancer' WHERE role::text = 'manager';`
+2. Drop `public.has_role(uuid, app_role)` (depends on the type).
+3. Rename `app_role` → `app_role_old`.
+4. Create new `CREATE TYPE public.app_role AS ENUM ('admin', 'freelancer');`
+5. `ALTER TABLE public.user_roles ALTER COLUMN role TYPE public.app_role USING role::text::public.app_role;`
+6. `DROP TYPE public.app_role_old;`
+7. Recreate `public.has_role(_user_id uuid, _role public.app_role)` (same body, `SECURITY DEFINER`, `SET search_path = public`).
 
-## 3. Quick-add timer FAB (floating button, any page)
+## Post-migration
+- Regenerated `src/integrations/supabase/types.ts` will list only `'admin' | 'freelancer'`.
+- Remove the now-unnecessary `roleRes.data.role !== "manager"` filter in `src/lib/auth.tsx` (cosmetic; harmless if left).
+- Update memory: change "DB enum value kept but unused" → "manager role fully removed".
 
-- New `<QuickTimerFab />` component mounted in `_authenticated.tsx` (authenticated layout only).
-- Floating bottom-right button → opens a small popover with Client/Project selectors + optional description → starts a timer via existing `useTimer` hook.
-- Hidden while a timer is already running (the sticky bar already covers that case).
-
-## 4. Invoicing / PDF export
-
-**DB migration** — new `invoices` table:
-- `id`, `user_id` (owner), `client_id`, `invoice_number` (auto per-user sequence), `issue_date`, `due_date`, `status` (draft/sent/paid), `subtotal_cents`, `total_cents`, `notes`, `pdf_generated_at`.
-- `invoice_line_items`: `id`, `invoice_id`, `description`, `hours`, `rate_cents`, `amount_cents`, optional `time_entry_ids[]` for traceability.
-- RLS: owner can CRUD their own; admins can view all. GRANTs to authenticated + service_role.
-
-**UI**
-- New route `/invoices` (freelancer) → list of invoices with status badges.
-- "New invoice" flow: pick client → pick date range → app pulls billable, un-invoiced `time_entries` for that client → preview line items grouped by project → save as draft.
-- Mark sent / mark paid actions.
-- "Download PDF" button → calls a `generateInvoicePdf` server fn (using `pdf-lib` — Worker-safe) that returns a base64 PDF; client triggers download.
-- Once an invoice is created, its source `time_entries` get `invoice_id` set (new nullable column) so they don't show up in future invoice drafts.
-
-**Sidebar**
-- Add "Invoices" entry under freelancer nav, between Weekly/Timesheet and Settings.
-
-## 5. Order of operations
-
-1. Migration: demote managers + add `invoices` tables + `time_entries.invoice_id`.
-2. Remove manager code & Team Overview route.
-3. Merge Timesheet/Weekly.
-4. Add QuickTimer FAB.
-5. Build invoicing UI + PDF server fn.
-
-I'll knock these out in that order. Approve and I'll start with the migration.
+No app-visible behavior changes.
