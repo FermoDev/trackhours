@@ -1,34 +1,52 @@
-## Goal
-Replace the blue primary accent (`oklch(0.45 0.18 260)` and its dark-mode variant `oklch(0.6 0.2 260)`) with green `#00ba6a` across the app.
+## 1. Remove manager role & Team Overview
 
-## Approach
-All blue UI comes from a small set of semantic tokens in `src/styles.css`. Update those tokens — every button, link, ring, chart-1 bar, sidebar accent, and focus state will pick it up automatically. No component files need to change.
+**DB migration**
+- Demote any users with role `manager` → `freelancer` in `user_roles`.
+- Leave the `app_role` enum value `'manager'` in place (Postgres can't easily drop enum values without rewriting dependent objects). It just won't be assigned anywhere.
 
-## Token conversion
-`#00ba6a` in OKLCH ≈ `oklch(0.68 0.17 155)`.
-- Light mode primary: `oklch(0.62 0.17 155)` (slightly deeper so white text stays readable on buttons)
-- Dark mode primary: `oklch(0.72 0.17 155)` (brighter to pop against dark bg)
+**Code deletions**
+- `src/routes/_authenticated.manager.tsx`
+- `src/routes/_authenticated.manager.index.tsx`
+- `src/server/manager.functions.ts`
+- Remove `managerNav` and the `isManager` branch in `src/components/AppSidebar.tsx`.
+- Remove "Manager" option from the role dropdown in `src/routes/_authenticated.admin.users.tsx`.
+- Drop any `role === 'manager'` checks in `src/lib/auth.tsx` and routes.
 
-## Changes (single file: `src/styles.css`)
+## 2. Merge Timesheet + Weekly View
 
-**`:root` (light mode) — update these tokens to the green hue (155):**
-- `--primary`
-- `--ring`
-- `--chart-1`
-- `--sidebar-primary`
-- `--sidebar-ring`
+- Keep `/timesheet` as the single route. Add a view toggle (List ↔ Week) at the top.
+- Move the existing weekly-grid UI from `_authenticated.weekly.tsx` into a `<WeeklyView />` component rendered when the toggle is "Week".
+- Delete `_authenticated.weekly.tsx` and the sidebar entry for it.
 
-**`.dark` — same set, using the dark-mode green:**
-- `--primary`
-- `--ring`
-- `--chart-1`
-- `--sidebar-primary`
-- `--sidebar-ring`
+## 3. Quick-add timer FAB (floating button, any page)
 
-**Leave untouched:**
-- `--timer` / `--success` (already green — independent semantic meaning)
-- `--destructive`, `--warning`, neutrals, other chart colors
-- `--primary-foreground` (stays near-white; contrast remains AA on the new green)
+- New `<QuickTimerFab />` component mounted in `_authenticated.tsx` (authenticated layout only).
+- Floating bottom-right button → opens a small popover with Client/Project selectors + optional description → starts a timer via existing `useTimer` hook.
+- Hidden while a timer is already running (the sticky bar already covers that case).
 
-## Out of scope
-No component-level edits. No logo/image asset changes. If any hardcoded blue hex exists in a component (none expected based on the design-system rule), that would be a follow-up.
+## 4. Invoicing / PDF export
+
+**DB migration** — new `invoices` table:
+- `id`, `user_id` (owner), `client_id`, `invoice_number` (auto per-user sequence), `issue_date`, `due_date`, `status` (draft/sent/paid), `subtotal_cents`, `total_cents`, `notes`, `pdf_generated_at`.
+- `invoice_line_items`: `id`, `invoice_id`, `description`, `hours`, `rate_cents`, `amount_cents`, optional `time_entry_ids[]` for traceability.
+- RLS: owner can CRUD their own; admins can view all. GRANTs to authenticated + service_role.
+
+**UI**
+- New route `/invoices` (freelancer) → list of invoices with status badges.
+- "New invoice" flow: pick client → pick date range → app pulls billable, un-invoiced `time_entries` for that client → preview line items grouped by project → save as draft.
+- Mark sent / mark paid actions.
+- "Download PDF" button → calls a `generateInvoicePdf` server fn (using `pdf-lib` — Worker-safe) that returns a base64 PDF; client triggers download.
+- Once an invoice is created, its source `time_entries` get `invoice_id` set (new nullable column) so they don't show up in future invoice drafts.
+
+**Sidebar**
+- Add "Invoices" entry under freelancer nav, between Weekly/Timesheet and Settings.
+
+## 5. Order of operations
+
+1. Migration: demote managers + add `invoices` tables + `time_entries.invoice_id`.
+2. Remove manager code & Team Overview route.
+3. Merge Timesheet/Weekly.
+4. Add QuickTimer FAB.
+5. Build invoicing UI + PDF server fn.
+
+I'll knock these out in that order. Approve and I'll start with the migration.
