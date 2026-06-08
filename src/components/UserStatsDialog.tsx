@@ -9,7 +9,7 @@ import { authHeaders } from "@/lib/server-auth";
 import { formatDuration } from "@/lib/format";
 import type { Tables } from "@/integrations/supabase/types";
 
-type AppRole = "admin" | "freelancer" | "manager";
+type AppRole = "admin" | "freelancer";
 type Profile = Tables<"profiles"> & { role: AppRole };
 
 interface Stats {

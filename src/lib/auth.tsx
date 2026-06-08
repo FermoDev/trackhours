@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import type { User, Session } from "@supabase/supabase-js";
 import type { Tables } from "@/integrations/supabase/types";
 
-type AppRole = "admin" | "freelancer" | "manager";
+type AppRole = "admin" | "freelancer";
 
 interface AuthState {
   isAuthenticated: boolean;

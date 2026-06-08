@@ -15,7 +15,6 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
 import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as AuthenticatedWeeklyRouteImport } from './routes/_authenticated.weekly'
 import { Route as AuthenticatedTimesheetRouteImport } from './routes/_authenticated.timesheet'
 import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated.settings'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated.dashboard'
@@ -56,11 +55,6 @@ const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
-} as any)
-const AuthenticatedWeeklyRoute = AuthenticatedWeeklyRouteImport.update({
-  id: '/weekly',
-  path: '/weekly',
-  getParentRoute: () => AuthenticatedRoute,
 } as any)
 const AuthenticatedTimesheetRoute = AuthenticatedTimesheetRouteImport.update({
   id: '/timesheet',
@@ -133,7 +127,6 @@ export interface FileRoutesByFullPath {
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/settings': typeof AuthenticatedSettingsRoute
   '/timesheet': typeof AuthenticatedTimesheetRoute
-  '/weekly': typeof AuthenticatedWeeklyRoute
   '/admin/assignments': typeof AuthenticatedAdminAssignmentsRoute
   '/admin/clients': typeof AuthenticatedAdminClientsRoute
   '/admin/entries': typeof AuthenticatedAdminEntriesRoute
@@ -151,7 +144,6 @@ export interface FileRoutesByTo {
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/settings': typeof AuthenticatedSettingsRoute
   '/timesheet': typeof AuthenticatedTimesheetRoute
-  '/weekly': typeof AuthenticatedWeeklyRoute
   '/admin/assignments': typeof AuthenticatedAdminAssignmentsRoute
   '/admin/clients': typeof AuthenticatedAdminClientsRoute
   '/admin/entries': typeof AuthenticatedAdminEntriesRoute
@@ -172,7 +164,6 @@ export interface FileRoutesById {
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
   '/_authenticated/timesheet': typeof AuthenticatedTimesheetRoute
-  '/_authenticated/weekly': typeof AuthenticatedWeeklyRoute
   '/_authenticated/admin/assignments': typeof AuthenticatedAdminAssignmentsRoute
   '/_authenticated/admin/clients': typeof AuthenticatedAdminClientsRoute
   '/_authenticated/admin/entries': typeof AuthenticatedAdminEntriesRoute
@@ -193,7 +184,6 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/settings'
     | '/timesheet'
-    | '/weekly'
     | '/admin/assignments'
     | '/admin/clients'
     | '/admin/entries'
@@ -211,7 +201,6 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/settings'
     | '/timesheet'
-    | '/weekly'
     | '/admin/assignments'
     | '/admin/clients'
     | '/admin/entries'
@@ -231,7 +220,6 @@ export interface FileRouteTypes {
     | '/_authenticated/dashboard'
     | '/_authenticated/settings'
     | '/_authenticated/timesheet'
-    | '/_authenticated/weekly'
     | '/_authenticated/admin/assignments'
     | '/_authenticated/admin/clients'
     | '/_authenticated/admin/entries'
@@ -293,13 +281,6 @@ declare module '@tanstack/react-router' {
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
-    }
-    '/_authenticated/weekly': {
-      id: '/_authenticated/weekly'
-      path: '/weekly'
-      fullPath: '/weekly'
-      preLoaderRoute: typeof AuthenticatedWeeklyRouteImport
-      parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/timesheet': {
       id: '/_authenticated/timesheet'
@@ -409,7 +390,6 @@ interface AuthenticatedRouteChildren {
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
   AuthenticatedTimesheetRoute: typeof AuthenticatedTimesheetRoute
-  AuthenticatedWeeklyRoute: typeof AuthenticatedWeeklyRoute
 }
 
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
@@ -417,7 +397,6 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
   AuthenticatedTimesheetRoute: AuthenticatedTimesheetRoute,
-  AuthenticatedWeeklyRoute: AuthenticatedWeeklyRoute,
 }
 
 const AuthenticatedRouteWithChildren = AuthenticatedRoute._addFileChildren(
