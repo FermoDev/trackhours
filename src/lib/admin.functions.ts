@@ -3,8 +3,13 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 type AppRole = "admin" | "freelancer";
 
-async function assertAdmin(userId: string) {
-  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+type AdminClient = Awaited<ReturnType<typeof loadAdmin>>;
+async function loadAdmin() {
+  const mod = await import("@/integrations/supabase/client.server");
+  return mod.supabaseAdmin;
+}
+
+async function assertAdmin(supabaseAdmin: AdminClient, userId: string) {
   const { data } = await supabaseAdmin
     .from("user_roles")
     .select("role")
@@ -13,8 +18,7 @@ async function assertAdmin(userId: string) {
   return data?.role === "admin";
 }
 
-async function countAdmins(): Promise<number> {
-  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+async function countAdmins(supabaseAdmin: AdminClient): Promise<number> {
   const { count } = await supabaseAdmin
     .from("user_roles")
     .select("*", { count: "exact", head: true })
@@ -26,6 +30,7 @@ export const adminResetPassword = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data: { email: string }) => data)
   .handler(async ({ data, context }) => {
+    const supabaseAdmin = await loadAdmin();
     // Verify caller is admin
     const { data: roleData } = await supabaseAdmin
       .from("user_roles")
@@ -55,7 +60,8 @@ export const adminUpdateUserRole = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data: { userId: string; role: AppRole }) => data)
   .handler(async ({ data, context }) => {
-    if (!(await assertAdmin(context.userId))) {
+    const supabaseAdmin = await loadAdmin();
+    if (!(await assertAdmin(supabaseAdmin, context.userId))) {
       return { success: false, error: "Unauthorized" };
     }
     if (data.userId === context.userId && data.role !== "admin") {
@@ -70,7 +76,7 @@ export const adminUpdateUserRole = createServerFn({ method: "POST" })
       .single();
 
     if (existing?.role === "admin" && data.role !== "admin") {
-      const adminCount = await countAdmins();
+      const adminCount = await countAdmins(supabaseAdmin);
       if (adminCount <= 1) {
         return { success: false, error: "At least one admin must remain" };
       }
@@ -95,7 +101,8 @@ export const adminSetUserStatus = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data: { userId: string; status: "active" | "inactive" }) => data)
   .handler(async ({ data, context }) => {
-    if (!(await assertAdmin(context.userId))) {
+    const supabaseAdmin = await loadAdmin();
+    if (!(await assertAdmin(supabaseAdmin, context.userId))) {
       return { success: false, error: "Unauthorized" };
     }
     if (data.userId === context.userId) {
@@ -120,7 +127,8 @@ export const adminDeleteUser = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data: { userId: string }) => data)
   .handler(async ({ data, context }) => {
-    if (!(await assertAdmin(context.userId))) {
+    const supabaseAdmin = await loadAdmin();
+    if (!(await assertAdmin(supabaseAdmin, context.userId))) {
       return { success: false, error: "Unauthorized" };
     }
     if (data.userId === context.userId) {
@@ -133,7 +141,7 @@ export const adminDeleteUser = createServerFn({ method: "POST" })
       .eq("user_id", data.userId)
       .single();
     if (targetRole?.role === "admin") {
-      const adminCount = await countAdmins();
+      const adminCount = await countAdmins(supabaseAdmin);
       if (adminCount <= 1) {
         return { success: false, error: "At least one admin must remain" };
       }
@@ -156,7 +164,8 @@ export const getUserStats = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data: { userId: string }) => data)
   .handler(async ({ data, context }) => {
-    if (!(await assertAdmin(context.userId))) {
+    const supabaseAdmin = await loadAdmin();
+    if (!(await assertAdmin(supabaseAdmin, context.userId))) {
       return { success: false as const, error: "Unauthorized" };
     }
 
