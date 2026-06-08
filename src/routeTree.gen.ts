@@ -18,10 +18,8 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedWeeklyRouteImport } from './routes/_authenticated.weekly'
 import { Route as AuthenticatedTimesheetRouteImport } from './routes/_authenticated.timesheet'
 import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated.settings'
-import { Route as AuthenticatedManagerRouteImport } from './routes/_authenticated.manager'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated.dashboard'
 import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated.admin'
-import { Route as AuthenticatedManagerIndexRouteImport } from './routes/_authenticated.manager.index'
 import { Route as AuthenticatedAdminIndexRouteImport } from './routes/_authenticated.admin.index'
 import { Route as AuthenticatedAdminUsersRouteImport } from './routes/_authenticated.admin.users'
 import { Route as AuthenticatedAdminReportsRouteImport } from './routes/_authenticated.admin.reports'
@@ -74,11 +72,6 @@ const AuthenticatedSettingsRoute = AuthenticatedSettingsRouteImport.update({
   path: '/settings',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
-const AuthenticatedManagerRoute = AuthenticatedManagerRouteImport.update({
-  id: '/manager',
-  path: '/manager',
-  getParentRoute: () => AuthenticatedRoute,
-} as any)
 const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
@@ -89,12 +82,6 @@ const AuthenticatedAdminRoute = AuthenticatedAdminRouteImport.update({
   path: '/admin',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
-const AuthenticatedManagerIndexRoute =
-  AuthenticatedManagerIndexRouteImport.update({
-    id: '/',
-    path: '/',
-    getParentRoute: () => AuthenticatedManagerRoute,
-  } as any)
 const AuthenticatedAdminIndexRoute = AuthenticatedAdminIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -144,7 +131,6 @@ export interface FileRoutesByFullPath {
   '/signup': typeof SignupRoute
   '/admin': typeof AuthenticatedAdminRouteWithChildren
   '/dashboard': typeof AuthenticatedDashboardRoute
-  '/manager': typeof AuthenticatedManagerRouteWithChildren
   '/settings': typeof AuthenticatedSettingsRoute
   '/timesheet': typeof AuthenticatedTimesheetRoute
   '/weekly': typeof AuthenticatedWeeklyRoute
@@ -155,7 +141,6 @@ export interface FileRoutesByFullPath {
   '/admin/reports': typeof AuthenticatedAdminReportsRoute
   '/admin/users': typeof AuthenticatedAdminUsersRoute
   '/admin/': typeof AuthenticatedAdminIndexRoute
-  '/manager/': typeof AuthenticatedManagerIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -174,7 +159,6 @@ export interface FileRoutesByTo {
   '/admin/reports': typeof AuthenticatedAdminReportsRoute
   '/admin/users': typeof AuthenticatedAdminUsersRoute
   '/admin': typeof AuthenticatedAdminIndexRoute
-  '/manager': typeof AuthenticatedManagerIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -186,7 +170,6 @@ export interface FileRoutesById {
   '/signup': typeof SignupRoute
   '/_authenticated/admin': typeof AuthenticatedAdminRouteWithChildren
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
-  '/_authenticated/manager': typeof AuthenticatedManagerRouteWithChildren
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
   '/_authenticated/timesheet': typeof AuthenticatedTimesheetRoute
   '/_authenticated/weekly': typeof AuthenticatedWeeklyRoute
@@ -197,7 +180,6 @@ export interface FileRoutesById {
   '/_authenticated/admin/reports': typeof AuthenticatedAdminReportsRoute
   '/_authenticated/admin/users': typeof AuthenticatedAdminUsersRoute
   '/_authenticated/admin/': typeof AuthenticatedAdminIndexRoute
-  '/_authenticated/manager/': typeof AuthenticatedManagerIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -209,7 +191,6 @@ export interface FileRouteTypes {
     | '/signup'
     | '/admin'
     | '/dashboard'
-    | '/manager'
     | '/settings'
     | '/timesheet'
     | '/weekly'
@@ -220,7 +201,6 @@ export interface FileRouteTypes {
     | '/admin/reports'
     | '/admin/users'
     | '/admin/'
-    | '/manager/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -239,7 +219,6 @@ export interface FileRouteTypes {
     | '/admin/reports'
     | '/admin/users'
     | '/admin'
-    | '/manager'
   id:
     | '__root__'
     | '/'
@@ -250,7 +229,6 @@ export interface FileRouteTypes {
     | '/signup'
     | '/_authenticated/admin'
     | '/_authenticated/dashboard'
-    | '/_authenticated/manager'
     | '/_authenticated/settings'
     | '/_authenticated/timesheet'
     | '/_authenticated/weekly'
@@ -261,7 +239,6 @@ export interface FileRouteTypes {
     | '/_authenticated/admin/reports'
     | '/_authenticated/admin/users'
     | '/_authenticated/admin/'
-    | '/_authenticated/manager/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -338,13 +315,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedSettingsRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
-    '/_authenticated/manager': {
-      id: '/_authenticated/manager'
-      path: '/manager'
-      fullPath: '/manager'
-      preLoaderRoute: typeof AuthenticatedManagerRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
     '/_authenticated/dashboard': {
       id: '/_authenticated/dashboard'
       path: '/dashboard'
@@ -358,13 +328,6 @@ declare module '@tanstack/react-router' {
       fullPath: '/admin'
       preLoaderRoute: typeof AuthenticatedAdminRouteImport
       parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/manager/': {
-      id: '/_authenticated/manager/'
-      path: '/'
-      fullPath: '/manager/'
-      preLoaderRoute: typeof AuthenticatedManagerIndexRouteImport
-      parentRoute: typeof AuthenticatedManagerRoute
     }
     '/_authenticated/admin/': {
       id: '/_authenticated/admin/'
@@ -441,21 +404,9 @@ const AuthenticatedAdminRouteChildren: AuthenticatedAdminRouteChildren = {
 const AuthenticatedAdminRouteWithChildren =
   AuthenticatedAdminRoute._addFileChildren(AuthenticatedAdminRouteChildren)
 
-interface AuthenticatedManagerRouteChildren {
-  AuthenticatedManagerIndexRoute: typeof AuthenticatedManagerIndexRoute
-}
-
-const AuthenticatedManagerRouteChildren: AuthenticatedManagerRouteChildren = {
-  AuthenticatedManagerIndexRoute: AuthenticatedManagerIndexRoute,
-}
-
-const AuthenticatedManagerRouteWithChildren =
-  AuthenticatedManagerRoute._addFileChildren(AuthenticatedManagerRouteChildren)
-
 interface AuthenticatedRouteChildren {
   AuthenticatedAdminRoute: typeof AuthenticatedAdminRouteWithChildren
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
-  AuthenticatedManagerRoute: typeof AuthenticatedManagerRouteWithChildren
   AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
   AuthenticatedTimesheetRoute: typeof AuthenticatedTimesheetRoute
   AuthenticatedWeeklyRoute: typeof AuthenticatedWeeklyRoute
@@ -464,7 +415,6 @@ interface AuthenticatedRouteChildren {
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedAdminRoute: AuthenticatedAdminRouteWithChildren,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
-  AuthenticatedManagerRoute: AuthenticatedManagerRouteWithChildren,
   AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
   AuthenticatedTimesheetRoute: AuthenticatedTimesheetRoute,
   AuthenticatedWeeklyRoute: AuthenticatedWeeklyRoute,
@@ -485,3 +435,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
