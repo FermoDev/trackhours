@@ -67,10 +67,10 @@ function NewInvoicePage() {
     for (const e of (entries as any[]) || []) {
       const pid = e.project_id;
       const name = e.projects?.name || "Untitled";
-      const cur = grouped.get(pid) ?? {
+      const cur: DraftLine = grouped.get(pid) ?? {
         projectId: pid, projectName: name,
         description: `${name} (${from} → ${to})`,
-        hours: 0, rate: parseFloat(defaultRate) || 0, entryIds: [],
+        hours: 0, rate: parseFloat(defaultRate) || 0, entryIds: [] as string[],
       };
       cur.hours += (e.duration_minutes || 0) / 60;
       cur.entryIds.push(e.id);
