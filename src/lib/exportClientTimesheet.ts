@@ -127,7 +127,7 @@ export async function exportClientTimesheet({ clientId, clientName, from, to }: 
   for (const r of rows) {
     const pid = r.project_id || "__none__";
     const name = r.projects?.name || "—";
-    const cur = byProject.get(pid) || { name, entries: [] };
+    const cur = byProject.get(pid) || { name, entries: [] as any[] };
     cur.entries.push(r);
     byProject.set(pid, cur);
   }
