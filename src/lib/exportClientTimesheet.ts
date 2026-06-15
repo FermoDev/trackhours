@@ -121,8 +121,112 @@ export async function exportClientTimesheet({ clientId, clientName, from, to }: 
   totalRow.getCell(4).alignment = { horizontal: "right" };
   totalRow.getCell(3).alignment = { horizontal: "right" };
 
-  // ===== Per-freelancer sheets =====
+  // ===== By Project sheet =====
   const usedNames = new Set<string>(["summary"]);
+  const byProject = new Map<string, { name: string; entries: any[] }>();
+  for (const r of rows) {
+    const pid = r.project_id || "__none__";
+    const name = r.projects?.name || "—";
+    const cur = byProject.get(pid) || { name, entries: [] };
+    cur.entries.push(r);
+    byProject.set(pid, cur);
+  }
+  const projectGroups = Array.from(byProject.values())
+    .map(g => ({
+      ...g,
+      hours: g.entries.reduce((s, e) => s + (e.duration_minutes || 0), 0) / 60,
+    }))
+    .sort((a, b) => b.hours - a.hours);
+
+  const proj = wb.addWorksheet(safeSheetName("By Project", usedNames));
+  proj.columns = [
+    { width: 12 },
+    { width: 26 },
+    { width: 10 },
+    { width: 60 },
+  ];
+  proj.mergeCells("A1:D1");
+  const pTitle = proj.getCell("A1");
+  pTitle.value = `${clientName} — Project Breakdown`;
+  pTitle.font = { bold: true, size: 16 };
+  proj.getCell("A2").value = `Date range: ${rangeLabel}`;
+  proj.getCell("A2").font = { italic: true, color: { argb: "FF666666" } };
+
+  let pr = 4;
+  for (const g of projectGroups) {
+    // Contributors breakdown
+    const contribMap = new Map<string, number>();
+    for (const e of g.entries) {
+      const nm = profileMap.get(e.user_id) || "Unknown";
+      contribMap.set(nm, (contribMap.get(nm) || 0) + (e.duration_minutes || 0));
+    }
+    const contributors = Array.from(contribMap.entries())
+      .sort((a, b) => b[1] - a[1])
+      .map(([nm, mins]) => `${nm} ${(mins / 60).toFixed(2)}h`)
+      .join(", ");
+
+    // Project header row
+    proj.mergeCells(`A${pr}:D${pr}`);
+    const hdrCell = proj.getCell(`A${pr}`);
+    hdrCell.value = `${g.name}    —    ${g.hours.toFixed(2)}h  (${g.entries.length} entries)`;
+    hdrCell.font = { bold: true, size: 12 };
+    hdrCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFE8F5EE" } };
+    pr++;
+
+    // Contributors line
+    proj.mergeCells(`A${pr}:D${pr}`);
+    const conCell = proj.getCell(`A${pr}`);
+    conCell.value = `Contributors: ${contributors}`;
+    conCell.font = { italic: true, color: { argb: "FF555555" }, size: 10 };
+    pr++;
+
+    // Column headers
+    const colHdr = proj.getRow(pr);
+    colHdr.values = ["Date", "Freelancer", "Hours", "Description"];
+    colHdr.font = { bold: true };
+    colHdr.eachCell(c => {
+      c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFEFEFEF" } };
+      c.border = { bottom: { style: "thin", color: { argb: "FFCCCCCC" } } };
+    });
+    pr++;
+
+    // Entry rows
+    const sortedEntries = [...g.entries].sort((a, b) => (a.entry_date < b.entry_date ? -1 : 1));
+    for (const e of sortedEntries) {
+      const rr = proj.getRow(pr++);
+      const hours = (e.duration_minutes || 0) / 60;
+      const nm = profileMap.get(e.user_id) || "Unknown";
+      rr.values = [e.entry_date, nm, Number(hours.toFixed(2)), e.description || ""];
+      rr.getCell(3).numFmt = "0.00";
+      rr.getCell(3).alignment = { horizontal: "right" };
+      rr.getCell(4).alignment = { wrapText: true, vertical: "top" };
+    }
+
+    // Project total row
+    const ptot = proj.getRow(pr++);
+    ptot.values = ["", "Project total", Number(g.hours.toFixed(2)), ""];
+    ptot.font = { bold: true };
+    ptot.getCell(3).numFmt = "0.00";
+    ptot.getCell(3).alignment = { horizontal: "right" };
+    ptot.eachCell(c => {
+      c.border = { top: { style: "thin", color: { argb: "FF999999" } } };
+    });
+
+    // Spacer row
+    pr++;
+  }
+
+  // Grand total
+  const grand = proj.getRow(pr);
+  grand.values = ["", "GRAND TOTAL", Number(totalHours.toFixed(2)), ""];
+  grand.font = { bold: true, size: 12 };
+  grand.getCell(3).numFmt = "0.00";
+  grand.getCell(3).alignment = { horizontal: "right" };
+  grand.eachCell(c => {
+    c.border = { top: { style: "medium", color: { argb: "FF333333" } } };
+  });
+
+  // ===== Per-freelancer sheets =====
   for (const sr of summaryRows) {
     const userEntries = Array.from(byUser.entries()).find(([uid]) => (profileMap.get(uid) || "Unknown") === sr.name)?.[1] || [];
     const sheet = wb.addWorksheet(safeSheetName(sr.name, usedNames));

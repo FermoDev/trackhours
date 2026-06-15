@@ -1,34 +1,55 @@
-## Source verified
-Sheet `Timesheets` in `Jul_-_Apr_total.xlsx`, 120 rows total:
-- Saad → 162h, Abdul Rafay → 117.5h, Alizar → 117.5h, Waseem → 99h
-- All entries: client = OrthoDent, billable = true, invoice_id = null
-- `duration_minutes = round(hours * 60)`, `start_time`/`end_time` = null
+Add a new **"By Project"** sheet to the client timesheet Excel export (`src/lib/exportClientTimesheet.ts`), inserted right after the Summary sheet and before the per-freelancer sheets.
 
-## User mapping
-| Sheet name | profiles.user_id |
-| --- | --- |
-| Saad | Saad Akhter Khan |
-| Abdul Rafay | Abdul Rafay |
-| Alizar | Alizar Lalani |
-| Waseem | Waseem Hussain |
+### Sheet contents
 
-## Keyword → project mapping (case-insensitive, first match wins)
+For each project that has entries for this client in the selected range, show:
 
-| Order | Keywords (any match) | Project |
-| --- | --- | --- |
-| 1 | `claude`, `datalake` | Claude Connector for Datalake |
-| 2 | `ec2`, `aws`, `lambda`, `glue`, `terraform`, `rds`, `etl`, `pipeline`, `sharepoint`, `power automate`, `athena`, `dynamodb`, `eventbridge`, `s3`, `cloudwatch`, `automation`, `active campaign`, `ac import` | Excel file automation on EC2 |
-| 3 | `payment allocation`, `ar sub`, `ar stand`, `ar activities`, `ar ledger`, `ar logic`, `late fee`, `duplicate payment`, `customer transaction`, `invoice` | Dashboard Creation /Updation |
-| 4 | `tracker`, `dashboard`, `warehouse`, `semantic model`, `transaction detail`, `adhoc`, `reporting`, `sql quer`, `data download`, `refresh`, `customer activity`, `ortho customer` | BI Dashboard Development |
-| 5 | fallback (`project discussion`, `follow-up`, `meeting`, etc.) | Project Management |
+- **Project name** (header row, bold, larger)
+- **Total hours** for the project (and entry count)
+- A table of entries under that project:
+  - Date
+  - Freelancer
+  - Hours
+  - Description
+- Entries sorted by date ascending
+- A "Project total" row at the bottom of each project block
+- Projects sorted by total hours descending (highest-impact first)
+- Below each project: a small "Contributors" line listing each freelancer + their hours on that project (so the client sees at a glance who worked on it)
 
-## Execution
-1. Build the 120-row INSERT locally with the mapping above, plus assignment upserts for `client_assignments` (OrthoDent → 4 users) and `project_assignments` (each user → each project they have entries in).
-2. Run via the data-insert tool as one transaction:
-   - `INSERT INTO time_entries (user_id, client_id, project_id, entry_date, duration_minutes, description, billable) VALUES …` (120 rows)
-   - `INSERT INTO client_assignments … ON CONFLICT DO NOTHING`
-   - `INSERT INTO project_assignments … ON CONFLICT DO NOTHING`
-3. Verify with `SELECT full_name, SUM(duration_minutes)/60.0 FROM time_entries JOIN profiles USING (user_id) WHERE client_id = '<OrthoDent>' AND entry_date BETWEEN '2025-06-25' AND '2026-04-30' GROUP BY full_name` and confirm 162 / 117.5 / 117.5 / 99.
+A grand total row at the bottom of the sheet.
 
-## Note
-No code changes — data import only. Nothing is invoiced; all 120 entries remain billable and available for inclusion in the next OrthoDent invoice.
+### Layout sketch
+
+```text
+Client Name — Project Breakdown
+Date range: ...
+
+────────────────────────────────────────────────
+Project: BI Dashboard Development          120.50h  (45 entries)
+Contributors: Saad 60.0h, Alizar 40.5h, Abdul Rafay 20.0h
+  Date        Freelancer       Hours   Description
+  2025-08-01  Saad             3.50    ...
+  ...
+                               ─────
+                  Project total 120.50
+
+────────────────────────────────────────────────
+Project: Excel automation on EC2            85.00h  (30 entries)
+...
+
+────────────────────────────────────────────────
+                          GRAND TOTAL  396.00h
+```
+
+### Implementation notes
+
+- Group `rows` by `project_id` (use `projects?.name` as label; fallback "—").
+- Reuse the existing `profileMap` for freelancer names.
+- Column widths: Date 12, Freelancer 24, Hours 10, Description 60.
+- Use the same styling tokens already in the file (grey header fill `FFEFEFEF`, thin borders, `0.00` numFmt for hours).
+- Sheet name: `"By Project"` (added to `usedNames` set so it doesn't collide).
+- No changes to the Summary or per-freelancer sheets, no changes to the download dialog, no DB/schema changes.
+
+### Files touched
+
+- `src/lib/exportClientTimesheet.ts` — add the new worksheet block between the Summary sheet and the per-freelancer loop.
