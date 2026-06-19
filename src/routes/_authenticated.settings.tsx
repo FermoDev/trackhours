@@ -94,35 +94,14 @@ function SettingsPage() {
   };
 
   return (
-    <div className="space-y-8 max-w-6xl mx-auto">
+    <div className="space-y-8 max-w-3xl mx-auto">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Settings</h1>
         <p className="text-muted-foreground text-sm mt-1">Manage your profile and account</p>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-[220px_minmax(0,1fr)]">
-        <aside className="lg:sticky lg:top-6 h-fit">
-          <nav className="flex lg:flex-col gap-1 overflow-x-auto lg:overflow-visible">
-            {[
-              { href: "#profile", label: "Profile", icon: User },
-              { href: "#password", label: "Password", icon: KeyRound },
-              { href: "#account", label: "Account", icon: Shield },
-              ...(role === "admin" ? [{ href: "#admin", label: "Admin", icon: Sparkles }] : []),
-            ].map((it) => (
-              <a
-                key={it.href}
-                href={it.href}
-                className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-muted-foreground hover:bg-accent hover:text-foreground transition-colors whitespace-nowrap"
-              >
-                <it.icon className="h-4 w-4" />
-                {it.label}
-              </a>
-            ))}
-          </nav>
-        </aside>
-
-        <div className="space-y-6 min-w-0">
-      <Card id="profile" className="scroll-mt-6">
+      <div className="space-y-6">
+      <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-base flex items-center gap-2"><User className="h-4 w-4 text-muted-foreground" />Profile</CardTitle>
         </CardHeader>
@@ -142,7 +121,7 @@ function SettingsPage() {
         </CardContent>
       </Card>
 
-      <Card id="password" className="scroll-mt-6">
+      <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-base flex items-center gap-2"><KeyRound className="h-4 w-4 text-muted-foreground" />Change password</CardTitle>
         </CardHeader>
@@ -194,7 +173,7 @@ function SettingsPage() {
         </CardContent>
       </Card>
 
-      <Card id="account" className="scroll-mt-6">
+      <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-base flex items-center gap-2"><Shield className="h-4 w-4 text-muted-foreground" />Account</CardTitle>
         </CardHeader>
@@ -211,7 +190,7 @@ function SettingsPage() {
       </Card>
 
       {role === "admin" && (
-        <Card id="admin" className="scroll-mt-6">
+        <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-base flex items-center gap-2"><Sparkles className="h-4 w-4 text-muted-foreground" />Admin quick links</CardTitle>
           </CardHeader>
@@ -225,7 +204,6 @@ function SettingsPage() {
           </CardContent>
         </Card>
       )}
-        </div>
       </div>
     </div>
   );
