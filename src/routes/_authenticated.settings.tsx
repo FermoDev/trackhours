@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { Link } from "@tanstack/react-router";
-import { Building2, FolderKanban, Loader2, LogOut } from "lucide-react";
+import { Building2, FolderKanban, Loader2, LogOut, User, KeyRound, Shield, Sparkles } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/settings")({
   component: SettingsPage,
@@ -94,15 +94,37 @@ function SettingsPage() {
   };
 
   return (
-    <div className="space-y-6 max-w-lg">
+    <div className="space-y-8 max-w-6xl">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Settings</h1>
         <p className="text-muted-foreground text-sm mt-1">Manage your profile and account</p>
       </div>
 
-      <Card>
+      <div className="grid gap-6 lg:grid-cols-[220px_minmax(0,1fr)]">
+        <aside className="lg:sticky lg:top-6 h-fit">
+          <nav className="flex lg:flex-col gap-1 overflow-x-auto lg:overflow-visible">
+            {[
+              { href: "#profile", label: "Profile", icon: User },
+              { href: "#password", label: "Password", icon: KeyRound },
+              { href: "#account", label: "Account", icon: Shield },
+              ...(role === "admin" ? [{ href: "#admin", label: "Admin", icon: Sparkles }] : []),
+            ].map((it) => (
+              <a
+                key={it.href}
+                href={it.href}
+                className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-muted-foreground hover:bg-accent hover:text-foreground transition-colors whitespace-nowrap"
+              >
+                <it.icon className="h-4 w-4" />
+                {it.label}
+              </a>
+            ))}
+          </nav>
+        </aside>
+
+        <div className="space-y-6 min-w-0">
+      <Card id="profile" className="scroll-mt-6">
         <CardHeader className="pb-3">
-          <CardTitle className="text-base">Profile</CardTitle>
+          <CardTitle className="text-base flex items-center gap-2"><User className="h-4 w-4 text-muted-foreground" />Profile</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-1.5">
@@ -120,9 +142,9 @@ function SettingsPage() {
         </CardContent>
       </Card>
 
-      <Card>
+      <Card id="password" className="scroll-mt-6">
         <CardHeader className="pb-3">
-          <CardTitle className="text-base">Change password</CardTitle>
+          <CardTitle className="text-base flex items-center gap-2"><KeyRound className="h-4 w-4 text-muted-foreground" />Change password</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-1.5">
@@ -172,9 +194,9 @@ function SettingsPage() {
         </CardContent>
       </Card>
 
-      <Card>
+      <Card id="account" className="scroll-mt-6">
         <CardHeader className="pb-3">
-          <CardTitle className="text-base">Account</CardTitle>
+          <CardTitle className="text-base flex items-center gap-2"><Shield className="h-4 w-4 text-muted-foreground" />Account</CardTitle>
         </CardHeader>
         <CardContent>
           <Button variant="outline" onClick={handleSignOut} disabled={signingOut} className="rounded-xl">
@@ -189,9 +211,9 @@ function SettingsPage() {
       </Card>
 
       {role === "admin" && (
-        <Card>
+        <Card id="admin" className="scroll-mt-6">
           <CardHeader className="pb-3">
-            <CardTitle className="text-base">Admin quick links</CardTitle>
+            <CardTitle className="text-base flex items-center gap-2"><Sparkles className="h-4 w-4 text-muted-foreground" />Admin quick links</CardTitle>
           </CardHeader>
           <CardContent className="flex flex-wrap gap-2">
             <Button variant="outline" size="sm" asChild className="rounded-xl">
@@ -203,6 +225,8 @@ function SettingsPage() {
           </CardContent>
         </Card>
       )}
+        </div>
+      </div>
     </div>
   );
 }

@@ -43,7 +43,7 @@ export function QuickTimerFab() {
       <PopoverTrigger asChild>
         <Button
           size="icon"
-          className="fixed bottom-6 right-6 h-14 w-14 rounded-full shadow-lg z-30"
+          className="fixed bottom-6 right-6 h-14 w-14 rounded-full shadow-[var(--shadow-float)] z-30 hover:scale-105 active:scale-95 transition-transform"
           aria-label="Start a quick timer"
         >
           <Play className="h-5 w-5" />
