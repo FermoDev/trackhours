@@ -35,7 +35,7 @@ function AuthenticatedLayout() {
     <div className="flex min-h-screen bg-background">
       <AppSidebar />
       <main className={`flex-1 overflow-auto transition-[padding] duration-200 ${activeEntry ? "pt-12" : ""}`}>
-        <div className="max-w-7xl mx-auto px-4 md:px-8 py-6 md:py-8">
+        <div className="w-full px-4 md:px-8 py-6 md:py-8">
           <Outlet />
         </div>
       </main>

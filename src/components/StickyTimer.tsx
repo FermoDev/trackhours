@@ -15,11 +15,11 @@ export function StickyTimer() {
   return (
     <div
       className={cn(
-        "fixed top-0 left-0 right-0 z-50 shadow-md transition-colors",
+        "fixed top-0 left-0 right-0 z-50 shadow-[var(--shadow-card)] transition-colors",
         isLongRunning ? "bg-warning text-warning-foreground" : "bg-timer text-timer-foreground",
       )}
     >
-      <div className="max-w-7xl mx-auto px-4 py-2.5 flex items-center justify-between gap-4">
+      <div className="w-full px-4 md:px-8 py-2.5 flex items-center justify-between gap-4">
         <div className="flex items-center gap-3 min-w-0">
           <Clock className="h-4 w-4 shrink-0 animate-pulse" />
           {isPaused && <span className="text-xs font-medium opacity-80 bg-background/20 px-1.5 py-0.5 rounded">Paused</span>}
