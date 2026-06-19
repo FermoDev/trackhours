@@ -1,55 +1,65 @@
-Add a new **"By Project"** sheet to the client timesheet Excel export (`src/lib/exportClientTimesheet.ts`), inserted right after the Summary sheet and before the per-freelancer sheets.
+# Visual Polish Plan
 
-### Sheet contents
+A cohesive design refresh inspired by Notion / Height — warm surfaces, soft depth, rounded corners — with a floating sidebar and full-bleed page layouts. No business logic changes.
 
-For each project that has entries for this client in the selected range, show:
+## 1. Design tokens (`src/styles.css`)
 
-- **Project name** (header row, bold, larger)
-- **Total hours** for the project (and entry count)
-- A table of entries under that project:
-  - Date
-  - Freelancer
-  - Hours
-  - Description
-- Entries sorted by date ascending
-- A "Project total" row at the bottom of each project block
-- Projects sorted by total hours descending (highest-impact first)
-- Below each project: a small "Contributors" line listing each freelancer + their hours on that project (so the client sees at a glance who worked on it)
+Warm up the neutrals and add depth tokens:
 
-A grand total row at the bottom of the sheet.
+- Background: shift from cool blue-grey to a warm off-white (`oklch(0.985 0.004 80)` light / warmer dark surface).
+- Cards: pure white in light, slightly elevated charcoal in dark.
+- Borders: softer, lower contrast.
+- Add `--shadow-soft`, `--shadow-card`, `--shadow-float` (sidebar) tokens.
+- Bump base `--radius` from `0.75rem` to `0.875rem` for rounder feel.
+- Keep the green primary `#00ba6a` — it stays the single accent.
 
-### Layout sketch
+## 2. Sidebar — floating card (`AppSidebar.tsx`)
 
-```text
-Client Name — Project Breakdown
-Date range: ...
+Convert the full-height bordered rail into an inset floating panel:
 
-────────────────────────────────────────────────
-Project: BI Dashboard Development          120.50h  (45 entries)
-Contributors: Saad 60.0h, Alizar 40.5h, Abdul Rafay 20.0h
-  Date        Freelancer       Hours   Description
-  2025-08-01  Saad             3.50    ...
-  ...
-                               ─────
-                  Project total 120.50
+- Wrap in outer padding (`p-2 md:p-3`) so the sidebar sits **inside** the page background with margin around it.
+- Sidebar itself: `rounded-2xl`, `shadow-card`, `bg-card`, no right border.
+- Section grouping with small uppercase labels: **Work** (Dashboard, Timesheet, Invoices), **Admin** (admin items, admin only), **Account** (Settings).
+- Nav items: refined typography, slightly tighter, active state uses a soft tinted pill (`bg-primary/10 text-primary`) instead of the current accent fill.
+- Footer (user + sign out): cleaner avatar circle with initials, name + email stacked, sign-out as ghost icon button.
+- Mobile: same floating treatment, slides in from left.
 
-────────────────────────────────────────────────
-Project: Excel automation on EC2            85.00h  (30 entries)
-...
+## 3. Layout shell (`_authenticated.tsx`)
 
-────────────────────────────────────────────────
-                          GRAND TOTAL  396.00h
-```
+- Page background becomes the warm tone; sidebar floats on top of it.
+- Replace `max-w-7xl mx-auto` with `w-full` + responsive horizontal padding so pages go full-bleed.
+- Top spacing for sticky timer bar preserved.
 
-### Implementation notes
+## 4. Settings page (`_authenticated.settings.tsx`)
 
-- Group `rows` by `project_id` (use `projects?.name` as label; fallback "—").
-- Reuse the existing `profileMap` for freelancer names.
-- Column widths: Date 12, Freelancer 24, Hours 10, Description 60.
-- Use the same styling tokens already in the file (grey header fill `FFEFEFEF`, thin borders, `0.00` numFmt for hours).
-- Sheet name: `"By Project"` (added to `usedNames` set so it doesn't collide).
-- No changes to the Summary or per-freelancer sheets, no changes to the download dialog, no DB/schema changes.
+Currently `max-w-lg` pinned left — looks unbalanced on wide screens. Rework:
 
-### Files touched
+- Two-column on `lg+`: left rail with section nav (Profile, Password, Account, Admin links) that smooth-scrolls; right column holds the cards.
+- Cards get `rounded-2xl`, soft shadow, more generous padding, section icons in header.
+- On mobile: single column, stacked cards full-width.
+- Inputs: slightly taller, rounded-lg, subtle focus ring in primary.
 
-- `src/lib/exportClientTimesheet.ts` — add the new worksheet block between the Summary sheet and the per-freelancer loop.
+## 5. Card + Button polish (light touch, app-wide)
+
+- `Card`: default to `rounded-2xl`, `border-border/60`, `shadow-soft`.
+- `Button`: default radius bumped to `rounded-lg`; keep existing variants. Primary uses a very subtle gradient (primary → slightly lighter) for warmth.
+- Page headers across routes: standardize a `PageHeader` look (h1 + muted subtitle, consistent spacing) — applied inline where headers already exist (Dashboard, Timesheet, Invoices, Admin pages, Settings). No new component required; just consistent classes.
+
+## 6. Sticky timer + Quick Timer FAB
+
+- Sticky timer bar: rounded-bottom, soft shadow, sits flush with floating sidebar.
+- FAB: larger, softer shadow, primary gradient, hover scale.
+
+## Out of scope
+- No route/feature changes, no data model changes, no copy rewrites.
+- Existing color semantics (success/warning/destructive) unchanged.
+- Dark mode tokens updated to match but theme toggle behavior unchanged.
+
+## Files touched
+- `src/styles.css` — tokens, shadows, radius, warm neutrals
+- `src/components/AppSidebar.tsx` — floating card + grouped sections
+- `src/routes/_authenticated.tsx` — shell padding + full-bleed container
+- `src/routes/_authenticated.settings.tsx` — two-column layout
+- `src/components/ui/card.tsx`, `src/components/ui/button.tsx` — defaults polish
+- `src/components/StickyTimer.tsx`, `src/components/QuickTimerFab.tsx` — shadow + radius polish
+- Light className tweaks on page headers in dashboard / timesheet / invoices / admin routes for consistency
