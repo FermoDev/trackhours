@@ -1,19 +1,20 @@
-Plan
+## Plan: Replace sidebar logo "T" with clock icon
 
-Goal: Remove the sticky left navigation pane from the Settings page and simplify the layout to a single column of cards.
+### What we will change
+- Update the `AppSidebar` logo badge so the "T" text is replaced by a `Clock` icon.
+- Keep the same rounded `h-7 w-7` container, primary/15 background, and primary text color so the visual identity remains consistent.
+- Keep the "TimeTrack" text label unchanged.
+- No other sidebar behavior (collapse, groups, active states, mobile drawer) changes.
 
-Changes
+### File to edit
+- `src/components/AppSidebar.tsx`
 
-1. Edit `src/routes/_authenticated.settings.tsx`
-   - Remove the `<aside>` element that contains the anchor-link navigation (Profile, Password, Account, Admin).
-   - Remove the `lg:grid-cols-[220px_minmax(0,1fr)]` grid wrapper and keep the cards in a single column.
-   - Remove `id` and `scroll-mt-6` attributes from each `<Card>` since there is no longer any in-page navigation to those anchors.
-   - Keep the page title and subtitle at the top.
-   - Tighten the single-column width to a more comfortable reading/form width (e.g., `max-w-3xl`) so the page doesn’t stretch on large screens.
+### Implementation detail
+- The file already imports `Clock` from `lucide-react` (used in the Admin "All Entries" nav item).
+- In the header area, replace the inner `<div>…T…</div>` badge with a container that renders `<Clock className="h-4 w-4" />`.
+- Ensure the icon remains centered and keeps the existing font-size/weight styling when the sidebar is expanded.
+- No new dependencies or design tokens needed.
 
-No functional changes to profile save, password change, sign out, or admin links.
-
-Out of scope
-
-- No changes to other routes, sidebar, or design tokens.
-- No backend or auth changes.
+### Out of scope
+- No changes to other routes, settings layout, or backend.
+- No new assets, fonts, or colors.

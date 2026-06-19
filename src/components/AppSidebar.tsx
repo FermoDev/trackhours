@@ -86,8 +86,8 @@ export function AppSidebar() {
       <div className="flex items-center justify-between px-4 pt-4 pb-2">
         {!collapsed && (
           <div className="flex items-center gap-2">
-            <div className="h-7 w-7 rounded-lg bg-primary/15 text-primary grid place-items-center text-sm font-bold">
-              T
+            <div className="h-7 w-7 rounded-lg bg-primary/15 text-primary grid place-items-center">
+              <Clock className="h-4 w-4" />
             </div>
             <span className="text-[15px] font-semibold tracking-tight">TimeTrack</span>
           </div>
