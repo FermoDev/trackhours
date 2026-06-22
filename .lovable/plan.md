@@ -1,22 +1,18 @@
-## Root cause: client-assignment trigger fires BEFORE INSERT
+## Projects: trigger is already correct, but the dialog still swallows errors
 
-The `trg_auto_assign_client` trigger on `public.clients` runs `BEFORE INSERT` and tries to insert into `client_assignments` using `NEW.id`. But at `BEFORE INSERT` the `clients` row doesn't physically exist yet, so the FK `client_assignments.client_id → clients.id` fails — which is the error toast you just saw.
+Good news on the DB side: the `trg_auto_assign_project` trigger on `public.projects` is already `AFTER INSERT`, so the FK-violation bug that hit clients does **not** exist here. The earlier migration also set `created_by DEFAULT auth.uid()` on projects, so creator auto-fill keeps working.
 
-The matching project trigger almost certainly has the same problem.
+However, the admin Add Project dialog (`src/routes/_authenticated.admin.projects.tsx`, `handleAdd`) has the same silent-failure pattern the clients page had: the insert result isn't inspected, so any future error (RLS, unique constraint, etc.) would close the dialog with no feedback.
 
-### Fix (single migration)
+### Fix
 
-1. Drop and recreate both auto-assign triggers as `AFTER INSERT`:
-   - `trg_auto_assign_client` on `public.clients` → AFTER INSERT
-   - The equivalent project trigger on `public.projects` → AFTER INSERT
-2. Keep the existing trigger functions (`auto_assign_client_creator`, `auto_assign_project_creator`) as-is — they already do the right thing; only the timing is wrong.
-3. Note: as `AFTER INSERT` the trigger can no longer mutate `NEW.created_by`. To keep the "default `created_by` to `auth.uid()`" behavior, add it as a column default (`DEFAULT auth.uid()`) on `clients` and `projects`, so the auto-fill still happens for both admin and self-serve inserts.
-
-### Verification
-
-After the migration runs, retry Add Client in `/admin/clients` — it should succeed and the new client should appear, with the creator auto-assigned.
+Mirror the clients page fix in `handleAdd` of the admin projects page:
+- Capture `{ error }` from the `supabase.from("projects").insert(...)` call.
+- On error: `toast.error(error.message)` and keep the dialog open.
+- On success: `toast.success("Project created")`, then reset form + close + refetch.
+- Wrap the reset of `adding` in a `finally` so the button can't get stuck spinning.
 
 ### Out of scope
 
-- No RLS policy changes.
-- No application code changes.
+- No DB / trigger / RLS changes — the projects trigger is already fine.
+- No change to the self-serve `findOrCreateProject` server-fn flow on the dashboard (it already handles errors).
