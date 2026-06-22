@@ -64,10 +64,18 @@ function AdminProjectsPage() {
   const handleAdd = async () => {
     if (!name || !clientId) return;
     setAdding(true);
-    await supabase.from("projects").insert({ name, client_id: clientId, description: desc || null, billable_default: billable });
-    setName(""); setClientId(""); setDesc(""); setBillable(true); setDialogOpen(false);
-    await fetchProjects();
-    setAdding(false);
+    try {
+      const { error } = await supabase.from("projects").insert({ name, client_id: clientId, description: desc || null, billable_default: billable });
+      if (error) {
+        toast.error(error.message);
+        return;
+      }
+      toast.success("Project created");
+      setName(""); setClientId(""); setDesc(""); setBillable(true); setDialogOpen(false);
+      await fetchProjects();
+    } finally {
+      setAdding(false);
+    }
   };
 
   const toggleStatus = async (project: Tables<"projects">) => {
