@@ -1,17 +1,15 @@
-## Fix: Add Client silently fails
+## Root cause: `<Toaster />` is never mounted
 
-The Add Client dialog in `src/routes/_authenticated.admin.clients.tsx` calls `supabase.from("clients").insert(...)` but **never inspects the result**. On any error (RLS, unique constraint, network) it just closes the dialog and refetches — so you see nothing happen.
+`src/components/ui/sonner.tsx` exports a `Toaster` but nothing in the app actually renders it. Every `toast.success` / `toast.error` call (including the one I just added to the Add Client handler) goes into the void — that's why you see "no error, nothing happens": the insert IS failing, but the error toast has nowhere to render.
 
-### Changes
+### Fix
 
-1. **Surface the real error** in `handleAdd`:
-   - Capture `{ error }` from the insert.
-   - On error: keep the dialog open and show `toast.error(error.message)` so we can see exactly why it failed (RLS, duplicate name/code, etc.).
-   - On success: show `toast.success("Client added")`, then close + refetch.
-2. **Reset the adding state in a `finally`** so the button can never get stuck spinning.
-3. No schema or RLS changes yet. Once you click Add again and we see the actual error message, we'll know if it's a duplicate-name constraint, an RLS rejection, or something else, and follow up with the right fix.
+1. **Mount `<Toaster />` in `src/routes/__root.tsx`** alongside the existing layout shell so toasts appear globally on every authenticated and public route.
+   - Import `Toaster` from `@/components/ui/sonner`.
+   - Render it once inside the root `<body>`/layout so a single instance serves the whole app.
+2. After that, click Add again. The real Supabase error message (likely a unique-constraint violation on `code` or a similar issue) will appear as a toast, and we'll know exactly what to address next.
 
 ### Out of scope
 
-- No change to the `clients` table, policies, or the auto-assign trigger.
-- No change to the self-serve `findOrCreateClient` flow used elsewhere.
+- No change to the `clients` insert logic itself (already returns and toasts on error after the previous patch).
+- No RLS/policy changes yet — confirmed your role is `admin`, so the INSERT policy permits it; we need the visible error before changing anything else.
