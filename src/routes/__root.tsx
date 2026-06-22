@@ -33,8 +33,8 @@ export const Route = createRootRoute({
       { name: "twitter:description", content: "Track your work hours effortlessly. Manage projects, log time, and get clear reports — all in one place." },
       { name: "twitter:card", content: "summary" },
       { property: "og:type", content: "website" },
-      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/f5011883-db71-4d69-a1c3-8b9d4ff433d9/id-preview-ee7dbf34--64b44288-0591-4666-be62-e01daba07031.lovable.app-1777374906035.png" },
-      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/f5011883-db71-4d69-a1c3-8b9d4ff433d9/id-preview-ee7dbf34--64b44288-0591-4666-be62-e01daba07031.lovable.app-1777374906035.png" },
+      { property: "og:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/attachments/og-images/5f812077-7588-473d-a43d-ae762c9a4a60" },
+      { name: "twitter:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/attachments/og-images/5f812077-7588-473d-a43d-ae762c9a4a60" },
     ],
     links: [
       { rel: "stylesheet", href: appCss },
