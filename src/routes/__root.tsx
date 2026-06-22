@@ -2,6 +2,7 @@ import { Outlet, Link, createRootRoute, HeadContent, Scripts } from "@tanstack/r
 import { AuthProvider } from "@/lib/auth";
 import { TimerProvider } from "@/hooks/use-timer";
 import { StickyTimer } from "@/components/StickyTimer";
+import { Toaster } from "@/components/ui/sonner";
 import appCss from "../styles.css?url";
 
 function NotFoundComponent() {
@@ -62,6 +63,7 @@ function RootComponent() {
       <TimerProvider>
         <Outlet />
         <StickyTimer />
+        <Toaster />
       </TimerProvider>
     </AuthProvider>
   );
