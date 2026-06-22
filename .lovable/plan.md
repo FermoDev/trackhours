@@ -1,20 +1,17 @@
-## Plan: Replace sidebar logo "T" with clock icon
+## Fix: Add Client silently fails
 
-### What we will change
-- Update the `AppSidebar` logo badge so the "T" text is replaced by a `Clock` icon.
-- Keep the same rounded `h-7 w-7` container, primary/15 background, and primary text color so the visual identity remains consistent.
-- Keep the "TimeTrack" text label unchanged.
-- No other sidebar behavior (collapse, groups, active states, mobile drawer) changes.
+The Add Client dialog in `src/routes/_authenticated.admin.clients.tsx` calls `supabase.from("clients").insert(...)` but **never inspects the result**. On any error (RLS, unique constraint, network) it just closes the dialog and refetches — so you see nothing happen.
 
-### File to edit
-- `src/components/AppSidebar.tsx`
+### Changes
 
-### Implementation detail
-- The file already imports `Clock` from `lucide-react` (used in the Admin "All Entries" nav item).
-- In the header area, replace the inner `<div>…T…</div>` badge with a container that renders `<Clock className="h-4 w-4" />`.
-- Ensure the icon remains centered and keeps the existing font-size/weight styling when the sidebar is expanded.
-- No new dependencies or design tokens needed.
+1. **Surface the real error** in `handleAdd`:
+   - Capture `{ error }` from the insert.
+   - On error: keep the dialog open and show `toast.error(error.message)` so we can see exactly why it failed (RLS, duplicate name/code, etc.).
+   - On success: show `toast.success("Client added")`, then close + refetch.
+2. **Reset the adding state in a `finally`** so the button can never get stuck spinning.
+3. No schema or RLS changes yet. Once you click Add again and we see the actual error message, we'll know if it's a duplicate-name constraint, an RLS rejection, or something else, and follow up with the right fix.
 
 ### Out of scope
-- No changes to other routes, settings layout, or backend.
-- No new assets, fonts, or colors.
+
+- No change to the `clients` table, policies, or the auto-assign trigger.
+- No change to the self-serve `findOrCreateClient` flow used elsewhere.

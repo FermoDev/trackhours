@@ -55,10 +55,18 @@ function AdminClientsPage() {
   const handleAdd = async () => {
     if (!name) return;
     setAdding(true);
-    await supabase.from("clients").insert({ name, code: code || null });
-    setName(""); setCode(""); setDialogOpen(false);
-    await fetchClients();
-    setAdding(false);
+    try {
+      const { error } = await supabase.from("clients").insert({ name, code: code || null });
+      if (error) {
+        toast.error(error.message);
+        return;
+      }
+      toast.success("Client added");
+      setName(""); setCode(""); setDialogOpen(false);
+      await fetchClients();
+    } finally {
+      setAdding(false);
+    }
   };
 
   const toggleStatus = async (client: Tables<"clients">) => {
