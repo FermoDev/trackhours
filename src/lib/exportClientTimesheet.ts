@@ -8,20 +8,6 @@ type Args = {
   to?: string;
 };
 
-function safeSheetName(name: string, used: Set<string>): string {
-  let base = name.replace(/[\\/?*\[\]:]/g, "").trim() || "Unnamed";
-  if (base.length > 28) base = base.slice(0, 28);
-  let candidate = base;
-  let i = 2;
-  while (used.has(candidate.toLowerCase())) {
-    const suffix = ` (${i})`;
-    candidate = base.slice(0, 28 - suffix.length) + suffix;
-    i++;
-  }
-  used.add(candidate.toLowerCase());
-  return candidate;
-}
-
 export async function exportClientTimesheet({ clientId, clientName, from, to }: Args) {
   let q = supabase
     .from("time_entries")
@@ -46,229 +32,168 @@ export async function exportClientTimesheet({ clientId, clientName, from, to }: 
     (profiles || []).forEach(p => profileMap.set(p.user_id, p.full_name || p.email || "Unknown"));
   }
 
-  // Group by user
-  const byUser = new Map<string, any[]>();
-  for (const r of rows) {
-    const arr = byUser.get(r.user_id) || [];
-    arr.push(r);
-    byUser.set(r.user_id, arr);
-  }
+  // Normalize entries: { name, date(Date), ym, hours, desc, project }
+  type Entry = { name: string; date: Date; ym: string; hours: number; desc: string; project: string };
+  const entries2: Entry[] = rows.map(r => {
+    const d = new Date(r.entry_date + "T00:00:00");
+    const ym = `${d.getFullYear()}-${d.getMonth() + 1}`;
+    return {
+      name: profileMap.get(r.user_id) || "Unknown",
+      date: d,
+      ym,
+      hours: (r.duration_minutes || 0) / 60,
+      desc: r.description || "",
+      project: r.projects?.name || "—",
+    };
+  });
 
   const wb = new ExcelJS.Workbook();
   wb.creator = "TrackHours";
   wb.created = new Date();
 
-  const rangeLabel = from || to ? `${from || "—"} to ${to || "—"}` : "All time";
-  const totalHours = rows.reduce((s, r) => s + (r.duration_minutes || 0), 0) / 60;
+  // ===== Sheet 1: Hours per person by project (two pivot blocks) =====
+  const pivot = wb.addWorksheet("Hours per person by project");
 
-  // ===== Summary sheet =====
-  const summary = wb.addWorksheet("Summary");
-  summary.columns = [
-    { width: 28 },
-    { width: 36 },
-    { width: 12 },
-    { width: 14 },
+  const projects = Array.from(new Set(entries2.map(e => e.project))).sort();
+  const months = Array.from(new Set(entries2.map(e => e.ym)))
+    .sort((a, b) => {
+      const [ay, am] = a.split("-").map(Number);
+      const [by, bm] = b.split("-").map(Number);
+      return ay !== by ? ay - by : am - bm;
+    });
+  const people = Array.from(new Set(entries2.map(e => e.name))).sort();
+
+  // sum helper
+  const sum = (filter: (e: Entry) => boolean) =>
+    entries2.filter(filter).reduce((s, e) => s + e.hours, 0);
+
+  const fmtNum = (v: number) => (v ? Number(v.toFixed(2)) : null);
+
+  // ---- Block A: Project by Month ----
+  pivot.getCell("A1").value = "Project by Month - Hours";
+  pivot.getCell("A1").font = { bold: true };
+
+  pivot.getCell("A3").value = "Name";
+  pivot.getCell("A3").font = { bold: true };
+  pivot.getCell("B3").value = "(All)";
+
+  pivot.getCell("A5").value = "Sum of Hours";
+  pivot.getCell("A5").font = { bold: true };
+  pivot.getCell("B5").value = "Year-Month";
+  pivot.getCell("B5").font = { bold: true };
+
+  // Header row 6: Project | months... | Grand Total
+  const headerA = pivot.getRow(6);
+  headerA.getCell(1).value = "Project";
+  months.forEach((m, i) => (headerA.getCell(2 + i).value = m));
+  headerA.getCell(2 + months.length).value = "Grand Total";
+  headerA.font = { bold: true };
+  headerA.eachCell(c => {
+    c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFEFEFEF" } };
+    c.border = { bottom: { style: "thin", color: { argb: "FFCCCCCC" } } };
+  });
+
+  let rowIdx = 7;
+  for (const p of projects) {
+    const row = pivot.getRow(rowIdx++);
+    row.getCell(1).value = p;
+    months.forEach((m, i) => {
+      const v = sum(e => e.project === p && e.ym === m);
+      row.getCell(2 + i).value = fmtNum(v);
+    });
+    const gt = sum(e => e.project === p);
+    row.getCell(2 + months.length).value = fmtNum(gt);
+  }
+  // Grand total row
+  const gtA = pivot.getRow(rowIdx++);
+  gtA.getCell(1).value = "Grand Total";
+  gtA.font = { bold: true };
+  months.forEach((m, i) => {
+    gtA.getCell(2 + i).value = fmtNum(sum(e => e.ym === m));
+  });
+  gtA.getCell(2 + months.length).value = fmtNum(sum(() => true));
+  gtA.eachCell(c => {
+    c.border = { top: { style: "thin", color: { argb: "FF999999" } } };
+  });
+
+  // ---- Block B: Project by People ----
+  rowIdx += 2;
+  pivot.getCell(`A${rowIdx}`).value = "Project by People - Hours";
+  pivot.getCell(`A${rowIdx}`).font = { bold: true };
+  rowIdx += 2;
+  pivot.getCell(`A${rowIdx}`).value = "Year-Month";
+  pivot.getCell(`A${rowIdx}`).font = { bold: true };
+  pivot.getCell(`B${rowIdx}`).value = "(All)";
+  rowIdx += 2;
+  pivot.getCell(`A${rowIdx}`).value = "Sum of Hours";
+  pivot.getCell(`A${rowIdx}`).font = { bold: true };
+  pivot.getCell(`B${rowIdx}`).value = "Name";
+  pivot.getCell(`B${rowIdx}`).font = { bold: true };
+
+  rowIdx += 1;
+  const headerB = pivot.getRow(rowIdx++);
+  headerB.getCell(1).value = "Project";
+  people.forEach((p, i) => (headerB.getCell(2 + i).value = p));
+  headerB.getCell(2 + people.length).value = "Grand Total";
+  headerB.font = { bold: true };
+  headerB.eachCell(c => {
+    c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFEFEFEF" } };
+    c.border = { bottom: { style: "thin", color: { argb: "FFCCCCCC" } } };
+  });
+
+  for (const proj of projects) {
+    const row = pivot.getRow(rowIdx++);
+    row.getCell(1).value = proj;
+    people.forEach((pe, i) => {
+      row.getCell(2 + i).value = fmtNum(sum(e => e.project === proj && e.name === pe));
+    });
+    row.getCell(2 + people.length).value = fmtNum(sum(e => e.project === proj));
+  }
+  const gtB = pivot.getRow(rowIdx++);
+  gtB.getCell(1).value = "Grand Total";
+  gtB.font = { bold: true };
+  people.forEach((pe, i) => {
+    gtB.getCell(2 + i).value = fmtNum(sum(e => e.name === pe));
+  });
+  gtB.getCell(2 + people.length).value = fmtNum(sum(() => true));
+  gtB.eachCell(c => {
+    c.border = { top: { style: "thin", color: { argb: "FF999999" } } };
+  });
+
+  // Column widths
+  pivot.getColumn(1).width = 46;
+  const maxCols = Math.max(months.length, people.length) + 1;
+  for (let i = 2; i <= 1 + maxCols; i++) pivot.getColumn(i).width = 12;
+
+  // ===== Sheet 2: Detail Timesheets =====
+  const detail = wb.addWorksheet("Detail Timesheets");
+  detail.columns = [
+    { header: "Name", key: "name", width: 22 },
+    { header: "Date", key: "date", width: 12 },
+    { header: "Year-Month", key: "ym", width: 12 },
+    { header: "Hours", key: "hours", width: 8 },
+    { header: "Task / Description", key: "desc", width: 80 },
+    { header: "Project", key: "project", width: 40 },
   ];
-
-  summary.mergeCells("A1:D1");
-  const title = summary.getCell("A1");
-  title.value = `${clientName} — Timesheet`;
-  title.font = { bold: true, size: 16 };
-
-  summary.getCell("A2").value = "Date range:";
-  summary.getCell("A2").font = { bold: true };
-  summary.getCell("B2").value = rangeLabel;
-  summary.getCell("A3").value = "Generated:";
-  summary.getCell("A3").font = { bold: true };
-  summary.getCell("B3").value = new Date().toLocaleString();
-  summary.getCell("A4").value = "Total hours:";
-  summary.getCell("A4").font = { bold: true };
-  summary.getCell("B4").value = Number(totalHours.toFixed(2));
-
-  const headerRowIdx = 6;
-  const headerRow = summary.getRow(headerRowIdx);
-  headerRow.values = ["Freelancer", "Projects", "Entries", "Total Hours"];
-  headerRow.font = { bold: true };
-  headerRow.eachCell(cell => {
-    cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFEFEFEF" } };
-    cell.border = { bottom: { style: "thin", color: { argb: "FFCCCCCC" } } };
+  detail.getRow(1).font = { bold: true };
+  detail.getRow(1).eachCell(c => {
+    c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFEFEFEF" } };
+    c.border = { bottom: { style: "thin", color: { argb: "FFCCCCCC" } } };
   });
 
-  const summaryRows: { name: string; projects: string; count: number; hours: number }[] = [];
-  byUser.forEach((entries, uid) => {
-    const name = profileMap.get(uid) || "Unknown";
-    const projects = Array.from(new Set(entries.map(e => e.projects?.name).filter(Boolean))).join(", ");
-    const hours = entries.reduce((s, e) => s + (e.duration_minutes || 0), 0) / 60;
-    summaryRows.push({ name, projects, count: entries.length, hours });
-  });
-  summaryRows.sort((a, b) => b.hours - a.hours);
-
-  let r = headerRowIdx + 1;
-  for (const sr of summaryRows) {
-    const row = summary.getRow(r++);
-    row.values = [sr.name, sr.projects, sr.count, Number(sr.hours.toFixed(2))];
-    row.getCell(4).numFmt = "0.00";
-    row.getCell(4).alignment = { horizontal: "right" };
-    row.getCell(3).alignment = { horizontal: "right" };
-  }
-  const totalRow = summary.getRow(r);
-  totalRow.values = ["Grand total", "", summaryRows.reduce((s, x) => s + x.count, 0), Number(totalHours.toFixed(2))];
-  totalRow.font = { bold: true };
-  totalRow.eachCell(cell => {
-    cell.border = { top: { style: "thin", color: { argb: "FF999999" } } };
-  });
-  totalRow.getCell(4).numFmt = "0.00";
-  totalRow.getCell(4).alignment = { horizontal: "right" };
-  totalRow.getCell(3).alignment = { horizontal: "right" };
-
-  // ===== By Project sheet =====
-  const usedNames = new Set<string>(["summary"]);
-  const byProject = new Map<string, { name: string; entries: any[] }>();
-  for (const r of rows) {
-    const pid = r.project_id || "__none__";
-    const name = r.projects?.name || "—";
-    const cur = byProject.get(pid) || { name, entries: [] as any[] };
-    cur.entries.push(r);
-    byProject.set(pid, cur);
-  }
-  const projectGroups = Array.from(byProject.values())
-    .map(g => ({
-      ...g,
-      hours: g.entries.reduce((s, e) => s + (e.duration_minutes || 0), 0) / 60,
-    }))
-    .sort((a, b) => b.hours - a.hours);
-
-  const proj = wb.addWorksheet(safeSheetName("By Project", usedNames));
-  proj.columns = [
-    { width: 12 },
-    { width: 26 },
-    { width: 10 },
-    { width: 60 },
-  ];
-  proj.mergeCells("A1:D1");
-  const pTitle = proj.getCell("A1");
-  pTitle.value = `${clientName} — Project Breakdown`;
-  pTitle.font = { bold: true, size: 16 };
-  proj.getCell("A2").value = `Date range: ${rangeLabel}`;
-  proj.getCell("A2").font = { italic: true, color: { argb: "FF666666" } };
-
-  let pr = 4;
-  for (const g of projectGroups) {
-    // Contributors breakdown
-    const contribMap = new Map<string, number>();
-    for (const e of g.entries) {
-      const nm = profileMap.get(e.user_id) || "Unknown";
-      contribMap.set(nm, (contribMap.get(nm) || 0) + (e.duration_minutes || 0));
-    }
-    const contributors = Array.from(contribMap.entries())
-      .sort((a, b) => b[1] - a[1])
-      .map(([nm, mins]) => `${nm} ${(mins / 60).toFixed(2)}h`)
-      .join(", ");
-
-    // Project header row
-    proj.mergeCells(`A${pr}:D${pr}`);
-    const hdrCell = proj.getCell(`A${pr}`);
-    hdrCell.value = `${g.name}    —    ${g.hours.toFixed(2)}h  (${g.entries.length} entries)`;
-    hdrCell.font = { bold: true, size: 12 };
-    hdrCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFE8F5EE" } };
-    pr++;
-
-    // Contributors line
-    proj.mergeCells(`A${pr}:D${pr}`);
-    const conCell = proj.getCell(`A${pr}`);
-    conCell.value = `Contributors: ${contributors}`;
-    conCell.font = { italic: true, color: { argb: "FF555555" }, size: 10 };
-    pr++;
-
-    // Column headers
-    const colHdr = proj.getRow(pr);
-    colHdr.values = ["Date", "Freelancer", "Hours", "Description"];
-    colHdr.font = { bold: true };
-    colHdr.eachCell(c => {
-      c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFEFEFEF" } };
-      c.border = { bottom: { style: "thin", color: { argb: "FFCCCCCC" } } };
+  const sorted = [...entries2].sort((a, b) => a.date.getTime() - b.date.getTime());
+  for (const e of sorted) {
+    const row = detail.addRow({
+      name: e.name,
+      date: e.date,
+      ym: e.ym,
+      hours: Number(e.hours.toFixed(2)),
+      desc: e.desc,
+      project: e.project,
     });
-    pr++;
-
-    // Entry rows
-    const sortedEntries = [...g.entries].sort((a, b) => (a.entry_date < b.entry_date ? -1 : 1));
-    for (const e of sortedEntries) {
-      const rr = proj.getRow(pr++);
-      const hours = (e.duration_minutes || 0) / 60;
-      const nm = profileMap.get(e.user_id) || "Unknown";
-      rr.values = [e.entry_date, nm, Number(hours.toFixed(2)), e.description || ""];
-      rr.getCell(3).numFmt = "0.00";
-      rr.getCell(3).alignment = { horizontal: "right" };
-      rr.getCell(4).alignment = { wrapText: true, vertical: "top" };
-    }
-
-    // Project total row
-    const ptot = proj.getRow(pr++);
-    ptot.values = ["", "Project total", Number(g.hours.toFixed(2)), ""];
-    ptot.font = { bold: true };
-    ptot.getCell(3).numFmt = "0.00";
-    ptot.getCell(3).alignment = { horizontal: "right" };
-    ptot.eachCell(c => {
-      c.border = { top: { style: "thin", color: { argb: "FF999999" } } };
-    });
-
-    // Spacer row
-    pr++;
-  }
-
-  // Grand total
-  const grand = proj.getRow(pr);
-  grand.values = ["", "GRAND TOTAL", Number(totalHours.toFixed(2)), ""];
-  grand.font = { bold: true, size: 12 };
-  grand.getCell(3).numFmt = "0.00";
-  grand.getCell(3).alignment = { horizontal: "right" };
-  grand.eachCell(c => {
-    c.border = { top: { style: "medium", color: { argb: "FF333333" } } };
-  });
-
-  // ===== Per-freelancer sheets =====
-  for (const sr of summaryRows) {
-    const userEntries = Array.from(byUser.entries()).find(([uid]) => (profileMap.get(uid) || "Unknown") === sr.name)?.[1] || [];
-    const sheet = wb.addWorksheet(safeSheetName(sr.name, usedNames));
-    sheet.columns = [
-      { width: 12 },
-      { width: 28 },
-      { width: 10 },
-      { width: 60 },
-    ];
-    sheet.mergeCells("A1:D1");
-    const t = sheet.getCell("A1");
-    t.value = `${sr.name} — ${clientName}`;
-    t.font = { bold: true, size: 14 };
-    sheet.getCell("A2").value = `Date range: ${rangeLabel}`;
-    sheet.getCell("A2").font = { italic: true, color: { argb: "FF666666" } };
-
-    const hdr = sheet.getRow(4);
-    hdr.values = ["Date", "Project", "Hours", "Description"];
-    hdr.font = { bold: true };
-    hdr.eachCell(c => {
-      c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFEFEFEF" } };
-      c.border = { bottom: { style: "thin", color: { argb: "FFCCCCCC" } } };
-    });
-
-    let row = 5;
-    const sorted = [...userEntries].sort((a, b) => (a.entry_date < b.entry_date ? -1 : 1));
-    for (const e of sorted) {
-      const rr = sheet.getRow(row++);
-      const hours = (e.duration_minutes || 0) / 60;
-      rr.values = [e.entry_date, e.projects?.name || "—", Number(hours.toFixed(2)), e.description || ""];
-      rr.getCell(3).numFmt = "0.00";
-      rr.getCell(3).alignment = { horizontal: "right" };
-      rr.getCell(4).alignment = { wrapText: true, vertical: "top" };
-    }
-    const tot = sheet.getRow(row);
-    tot.values = ["", "Total", Number(sr.hours.toFixed(2)), ""];
-    tot.font = { bold: true };
-    tot.getCell(3).numFmt = "0.00";
-    tot.getCell(3).alignment = { horizontal: "right" };
-    tot.eachCell(c => {
-      c.border = { top: { style: "thin", color: { argb: "FF999999" } } };
-    });
+    row.getCell(2).numFmt = "yyyy-mm-dd";
+    row.getCell(4).numFmt = "0.##";
+    row.getCell(5).alignment = { wrapText: true, vertical: "top" };
   }
 
   const buffer = await wb.xlsx.writeBuffer();
@@ -279,9 +204,10 @@ export async function exportClientTimesheet({ clientId, clientName, from, to }: 
   const fromLabel = from || "all";
   const toLabel = to || "all";
   a.href = url;
-  a.download = `${safeClient}_Timesheet_${fromLabel}_to_${toLabel}.xlsx`;
+  a.download = `${safeClient}_Total_Hours_${fromLabel}_to_${toLabel}.xlsx`;
   a.click();
   URL.revokeObjectURL(url);
 
+  const totalHours = entries2.reduce((s, e) => s + e.hours, 0);
   return { entryCount: rows.length, totalHours };
 }
