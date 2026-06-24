@@ -1,28 +1,27 @@
-## Reset Orthodent and wait for a fresh import
+## Re-import Orthodent timesheets
 
-The previous import was wrong end-to-end. Wipe everything Orthodent again so we can redo it cleanly from a sheet you provide.
+Source: `OrthoDent Total Hours July - June.xlsx`, sheet **Detail Timesheets** (only sheet in the file). 143 rows, 537.5 total hours.
 
-### Step 1 — Full Orthodent data wipe
-On the Orthodent client (keep the client row + `client_assignments` intact):
-- Void any invoices tied to Orthodent (`invoices.status = 'void'`).
-- Delete all `invoice_line_items` linked to those invoices.
-- Delete all `time_entries` where `client_id = Orthodent`.
-- Delete all `project_assignments` for Orthodent projects.
-- Delete all `projects` where `client_id = Orthodent`.
+### Name → user mapping (all 5 confirmed in DB)
+| Sheet name | Web app user | Hours |
+|---|---|---|
+| Abdul Rafay | Abdul Rafay | 129.5 |
+| Alizar Lalani | Alizar Lalani | 125.5 |
+| Saad Akhtar Khan | Saad Akhter Khan | 171.5 |
+| Sami | Sami | 12.0 |
+| Waseem | Waseem Hussain | 99.0 |
 
-After this: 0 projects, 0 entries, 0 assignments under Orthodent.
+### Column mapping
+- A → freelancer name (mapped above)
+- B → date (Excel serial → real date, e.g. 45839 = 2025-07-02)
+- D → hours
+- E → description
+- F → project name (22 distinct projects, created under Orthodent client)
 
-### Step 2 — Stop and ask before re-importing
-I will NOT re-import from the previous file. Instead, once the wipe is done I'll ask you to:
-1. Re-upload the Excel sheet (or confirm the existing one is the source of truth).
-2. Walk me through which sheet/tab and which columns map to: **freelancer name, date, hours, project, description**.
-3. Confirm the exact name→profile mapping (Waseem Hussain, Saad Akhter Khan, and any other ambiguous names) BEFORE any insert runs.
+### Steps
+1. Create the 22 distinct projects under Orthodent client (`53834128-cc80-4789-8031-2f0145d3d814`), `billable_default=true`, `created_by` = Sami (admin).
+2. Upsert `project_assignments` for each freelancer ↔ each project they logged on.
+3. Insert 143 `time_entries` rows with: `user_id`, `client_id`, `project_id`, `entry_date`, `duration_minutes = hours*60`, `description`, `billable=true`, `status='approved'`, `invoice_id=null`.
+4. Verification query: counts per person, per project, total hours = 537.5. Show before confirming done.
 
-### Step 3 — Re-import (only after your confirmation)
-Create projects + insert time entries strictly per your column mapping and name mapping. Then I'll show you a verification query (counts per project, counts per person, total hours) for you to sign off before we touch anything else.
-
-### Excel export format
-No changes this round — the two-tab export format stays as-is unless you tell me it's also wrong.
-
-### Open question
-Do you want me to keep the existing uploaded sheet `OrthoDent_Total_Hours_July_-_June.xlsx` as the source, or will you upload a new/corrected one after the wipe?
+No code changes — pure data import via SQL inserts.
