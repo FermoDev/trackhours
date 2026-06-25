@@ -1,27 +1,25 @@
-## Re-import Orthodent timesheets
+## Goal
+Reset Sami's time entries and seed 10 weekly entries on HachiAI / Project Management.
 
-Source: `OrthoDent Total Hours July - June.xlsx`, sheet **Detail Timesheets** (only sheet in the file). 143 rows, 537.5 total hours.
+## Steps
 
-### Name → user mapping (all 5 confirmed in DB)
-| Sheet name | Web app user | Hours |
-|---|---|---|
-| Abdul Rafay | Abdul Rafay | 129.5 |
-| Alizar Lalani | Alizar Lalani | 125.5 |
-| Saad Akhtar Khan | Saad Akhter Khan | 171.5 |
-| Sami | Sami | 12.0 |
-| Waseem | Waseem Hussain | 99.0 |
+1. **Find IDs** (read-only):
+   - Sami's user_id: `887c435e-d96f-4104-8104-c0873d1ae0b1`
+   - Look up HachiAI client_id and "Project Management" project_id under that client. If the project doesn't exist, create it (billable_default=true, created_by=Sami).
+   - Ensure project_assignment exists for Sami on that project.
 
-### Column mapping
-- A → freelancer name (mapped above)
-- B → date (Excel serial → real date, e.g. 45839 = 2025-07-02)
-- D → hours
-- E → description
-- F → project name (22 distinct projects, created under Orthodent client)
+2. **Clear Sami's existing entries**: `DELETE FROM time_entries WHERE user_id = '<sami>'`. (Confirmed: wipe ALL of Sami's entries across every client/project, not just HachiAI.)
 
-### Steps
-1. Create the 22 distinct projects under Orthodent client (`53834128-cc80-4789-8031-2f0145d3d814`), `billable_default=true`, `created_by` = Sami (admin).
-2. Upsert `project_assignments` for each freelancer ↔ each project they logged on.
-3. Insert 143 `time_entries` rows with: `user_id`, `client_id`, `project_id`, `entry_date`, `duration_minutes = hours*60`, `description`, `billable=true`, `status='approved'`, `invoice_id=null`.
-4. Verification query: counts per person, per project, total hours = 537.5. Show before confirming done.
+3. **Insert 10 entries** — each 2.5h (150 min), billable=true, status=approved, entry_mode=manual, description = `"Total of meetings attended and follow ups internally and with the HachiAI team (weekly)"`. Dates (Fridays, with last one clipped to Thu Jun 25 per the cutoff):
 
-No code changes — pure data import via SQL inserts.
+   ```text
+   2026-04-24, 2026-05-01, 2026-05-08, 2026-05-15, 2026-05-22,
+   2026-05-29, 2026-06-05, 2026-06-12, 2026-06-19, 2026-06-25
+   ```
+
+   Total = 25h.
+
+4. **Verify**: `SELECT count(*), sum(duration_minutes)/60.0 FROM time_entries WHERE user_id='<sami>'` → expect 10 and 25.
+
+## Open question
+Step 2 deletes every Sami time entry in the database. Confirm that's what you want (vs. only deleting Sami's HachiAI entries).
