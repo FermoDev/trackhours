@@ -1,38 +1,30 @@
-# Verify Auth Email Flows End-to-End
+## What I found
 
-Run automated Playwright tests against the live preview to exercise each auth email flow, then confirm delivery via `email_send_log` in the database.
+- Your backend is currently configured with **no sender domain** because `notify.trackhourspro.com` was removed during setup.
+- The email queue/log tables still exist, but with no configured sender domain the custom Lovable email pipeline cannot deliver auth emails.
+- Recent auth logs in this session did not show a fresh successful email-send event for your latest signup attempt.
 
-## Flows to verify
+## Plan
 
-1. **Sign up** — create a new test user, confirm confirmation email is enqueued and sent.
-2. **Login verification** — attempt login before confirming email (should fail with `email_not_confirmed`), then simulate/verify the confirmation link works.
-3. **Forgot password** — trigger password reset from the login page, confirm recovery email is sent, verify `/reset-password` page loads with recovery token and accepts a new password.
-4. **Logout** — sign in, sign out, confirm session cleared (no email expected — logout doesn't send email; will confirm this is expected behavior).
+1. **Keep domain-connected mail disabled**
+   - Do not reconnect or set up `notify.trackhourspro.com`.
+   - Do not add custom branded/domain-based email templates.
 
-## How each flow is checked
+2. **Switch auth back to default managed auth emails**
+   - Disable the project-level custom email pipeline so auth emails use Lovable’s default managed email sending instead.
+   - This is the workflow you asked for: no domain-connected sender, but signup/reset verification emails should still be sent.
 
-For each flow:
-- Drive the UI via Playwright (headless Chromium at `localhost:8080`), screenshot each step.
-- After the action, query `email_send_log` filtered by recipient + template_name, deduplicated by `message_id`, to confirm status is `sent` (not `pending`, `dlq`, `failed`, or `suppressed`).
-- Inspect `error_message` on any non-sent row and report it.
+3. **Verify with a fresh end-to-end test**
+   - Create a new test signup from the app.
+   - Confirm the UI reaches the “check your email” state.
+   - Check backend auth logs for the new signup/recovery email request and successful processing.
+   - Trigger forgot password for the same test email and verify the recovery email path too.
 
-## Test accounts
+4. **Report the exact result**
+   - Confirm whether default auth emails are now being handed off successfully.
+   - If the backend still reports delivery failure, capture the concrete error and fix that specific configuration next.
 
-Use unique throwaway emails per run (e.g. `test+<timestamp>@example.com`). Do not test with real user inboxes. Cleanup: delete created test users from `auth.users` at the end.
+## Technical notes
 
-## Reset-password page check
-
-Verify `/reset-password` route exists and is publicly accessible (not behind auth gate). Confirm it reads `type=recovery` from URL hash and calls `supabase.auth.updateUser({ password })`.
-
-## Deliverable
-
-A summary report per flow:
-- ✅/❌ UI action succeeded
-- ✅/❌ Email row present in `email_send_log` with status `sent`
-- Any error messages or misconfigurations found
-- Recommendations if a flow is broken
-
-## Notes
-
-- No code changes unless a broken flow is discovered — in which case I'll stop, report, and ask before fixing.
-- Auth email TTL is 15 minutes; tests run immediately after enqueue to avoid expiration.
+- I will use the built-in email toggle rather than deleting code or reconnecting DNS.
+- I will not change app email infrastructure, database schema, or domain settings beyond disabling the custom email pipeline.
