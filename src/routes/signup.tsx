@@ -25,9 +25,10 @@ function SignupPage() {
     e.preventDefault();
     setError("");
     setLoading(true);
-    const { error } = await signUp(email, password, fullName);
+    const { error, needsEmailConfirmation } = await signUp(email, password, fullName);
     if (error) setError(error);
-    else setSuccess(true);
+    else if (needsEmailConfirmation) setSuccess(true);
+    else navigate({ to: "/dashboard" });
     setLoading(false);
   };
 
