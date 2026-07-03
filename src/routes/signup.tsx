@@ -1,6 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState, type FormEvent } from "react";
 import { useAuth } from "@/lib/auth";
+import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -20,6 +21,9 @@ function SignupPage() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [resending, setResending] = useState(false);
+  const [resendMsg, setResendMsg] = useState("");
+  const [resendErr, setResendErr] = useState("");
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -32,6 +36,20 @@ function SignupPage() {
     setLoading(false);
   };
 
+  const handleResend = async () => {
+    setResendMsg("");
+    setResendErr("");
+    setResending(true);
+    const { error } = await supabase.auth.resend({
+      type: "signup",
+      email,
+      options: { emailRedirectTo: `${window.location.origin}/dashboard` },
+    });
+    if (error) setResendErr(error.message);
+    else setResendMsg("Verification email sent. Check your inbox.");
+    setResending(false);
+  };
+
   if (success) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background px-4">
@@ -39,7 +57,16 @@ function SignupPage() {
           <CardContent className="pt-6 text-center space-y-4">
             <h2 className="text-xl font-semibold">Check your email</h2>
             <p className="text-sm text-muted-foreground">We've sent a confirmation link to <strong>{email}</strong>.</p>
-            <Button variant="outline" asChild><Link to="/login">Back to login</Link></Button>
+            {resendMsg && <p className="text-sm text-primary bg-primary/10 rounded-lg p-3">{resendMsg}</p>}
+            {resendErr && <p className="text-sm text-destructive bg-destructive/10 rounded-lg p-3">{resendErr}</p>}
+            <p className="text-xs text-muted-foreground">Didn't get it? Check spam or resend below.</p>
+            <div className="flex flex-col gap-2">
+              <Button onClick={handleResend} disabled={resending} className="w-full">
+                {resending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                {resending ? "Sending..." : "Resend verification email"}
+              </Button>
+              <Button variant="outline" asChild><Link to="/login">Back to login</Link></Button>
+            </div>
           </CardContent>
         </Card>
       </div>
