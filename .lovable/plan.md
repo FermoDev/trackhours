@@ -1,15 +1,21 @@
-## What went wrong
+Set up domain-based email for the project using Lovable's built-in email infrastructure.
 
-During the earlier debugging pass I turned on auto-confirm at the auth backend to bypass the broken email pipeline. Side effect: no verification email is sent anymore, and new users get a session immediately. That's why `signup.tsx` routes straight to `/dashboard` and the resend button is unreachable.
+1. **Set up sender domain**
+   - Use the in-product email setup dialog to provision a delegated subdomain (e.g. notify.trackhourspro.com).
+   - Lovable handles SPF, DKIM, and MX records automatically in the delegated zone.
 
-## Plan
+2. **Provision shared email infrastructure**
+   - Run `email_domain--setup_email_infra` to create pgmq queues, the email send log, suppression list, unsubscribe tokens, vault secrets, and the `process-email-queue` cron job.
 
-1. **Turn auto-confirm back off** at the auth backend so Supabase resumes sending the signup confirmation email via its default managed template. Signups will again return without a session until the user clicks the link.
-2. **Leave the signup client code as-is.** The existing `needsEmailConfirmation: !data.session` branch will correctly show the "Check your email" screen with the Resend button; the `/dashboard` fall-through stays as a safety net.
-3. **Verify end to end** with a fresh Playwright signup: confirm the UI reaches the check-your-email state, confirm the auth backend logs a signup confirmation email send, and confirm the Resend button triggers a second send.
+3. **Scaffold auth email templates**
+   - Run `email_domain--scaffold_auth_email_templates` to generate the six standard auth templates (signup, magic-link, recovery, invite, email-change, reauthentication) and the `/lovable/email/auth/webhook` route.
+   - Style the templates to match the app's brand: neutral UI, primary accent #00ba6a, Inter font, white email body background.
 
-## Not doing
+4. **Verify end-to-end**
+   - After DNS and deployment, run a fresh signup test with a real address and confirm the branded verification email is sent.
+   - Confirm the “Resend verification email” button on the signup page triggers a second confirmation email.
 
-- Not reconnecting `notify.trackhourspro.com` or re-enabling the custom Lovable email pipeline (per your earlier decision).
-- Not changing signup UI, copy, or the resend button.
-- Not touching password reset or login flows.
+5. **Optional follow-up**
+   - Once auth emails are live, ask whether to scaffold app/transactional emails for contact confirmations, notifications, or other user-triggered messages.
+
+Cost: Lovable Email is included with Lovable Cloud and uses the workspace's existing credit balance; there is no separate email subscription. Usage beyond the free monthly Cloud allowance is deducted from available credits.
