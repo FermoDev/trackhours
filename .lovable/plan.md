@@ -1,17 +1,38 @@
-## Revert to the previous email workflow
+# Verify Auth Email Flows End-to-End
 
-You want to go back to Lovable's default managed auth emails (no custom sender domain, no queue infrastructure to maintain). Doing that also fixes the build error, since the file causing it is part of the domain-based setup we no longer need.
+Run automated Playwright tests against the live preview to exercise each auth email flow, then confirm delivery via `email_send_log` in the database.
 
-### Steps
+## Flows to verify
 
-1. **Disable Lovable Emails for this project** — flips auth emails back to Lovable's default templates delivered via Lovable's shared sender. This is exactly the workflow you had before today.
-2. **Delete `src/routes/lovable/email/queue/process.ts`** — the file whose missing `@lovable.dev/email-js` import is failing the build. It only exists to process the custom queue we no longer need.
-3. **Leave everything else alone** — no code changes to auth flow, signup page, Supabase client, or middleware. The DB tables the setup created (`email_send_log`, pgmq queues, etc.) are harmless when unused; removing them requires a destructive migration and offers no benefit.
+1. **Sign up** — create a new test user, confirm confirmation email is enqueued and sent.
+2. **Login verification** — attempt login before confirming email (should fail with `email_not_confirmed`), then simulate/verify the confirmation link works.
+3. **Forgot password** — trigger password reset from the login page, confirm recovery email is sent, verify `/reset-password` page loads with recovery token and accepts a new password.
+4. **Logout** — sign in, sign out, confirm session cleared (no email expected — logout doesn't send email; will confirm this is expected behavior).
 
-### About the original delivery problem
+## How each flow is checked
 
-Reverting restores the exact behavior you had before — including the shared-sender deliverability risk that started this thread. New signups will again rely on Lovable's default sender. If specific users report they still don't get the verification email, the interim fix is for you (as admin) to manually confirm their email in the DB so they can log in; I can wire up a small admin action for that if/when it comes up.
+For each flow:
+- Drive the UI via Playwright (headless Chromium at `localhost:8080`), screenshot each step.
+- After the action, query `email_send_log` filtered by recipient + template_name, deduplicated by `message_id`, to confirm status is `sent` (not `pending`, `dlq`, `failed`, or `suppressed`).
+- Inspect `error_message` on any non-sent row and report it.
 
-### DNS note
+## Test accounts
 
-The NS records you added at your DNS provider for `notify.trackhourspro.com` can stay or be removed at your convenience — they don't affect the app either way once Lovable Emails is disabled. If you want, remove them at your registrar.
+Use unique throwaway emails per run (e.g. `test+<timestamp>@example.com`). Do not test with real user inboxes. Cleanup: delete created test users from `auth.users` at the end.
+
+## Reset-password page check
+
+Verify `/reset-password` route exists and is publicly accessible (not behind auth gate). Confirm it reads `type=recovery` from URL hash and calls `supabase.auth.updateUser({ password })`.
+
+## Deliverable
+
+A summary report per flow:
+- ✅/❌ UI action succeeded
+- ✅/❌ Email row present in `email_send_log` with status `sent`
+- Any error messages or misconfigurations found
+- Recommendations if a flow is broken
+
+## Notes
+
+- No code changes unless a broken flow is discovered — in which case I'll stop, report, and ask before fixing.
+- Auth email TTL is 15 minutes; tests run immediately after enqueue to avoid expiration.
