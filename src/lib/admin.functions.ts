@@ -28,7 +28,7 @@ async function countAdmins(supabaseAdmin: AdminClient): Promise<number> {
 
 export const adminResetPassword = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((data: { email: string }) => data)
+  .inputValidator((data: { email: string; redirectTo?: string }) => data)
   .handler(async ({ data, context }) => {
     const supabaseAdmin = await loadAdmin();
     // Verify caller is admin
@@ -42,12 +42,8 @@ export const adminResetPassword = createServerFn({ method: "POST" })
       return { success: false, error: "Unauthorized" };
     }
 
-    const siteUrl = process.env.SUPABASE_URL
-      ? `https://${process.env.SUPABASE_URL.split("//")[1]?.replace(".supabase.co", "")}.lovable.app`
-      : "";
-
     const { error } = await supabaseAdmin.auth.resetPasswordForEmail(data.email, {
-      redirectTo: `${siteUrl}/reset-password`,
+      redirectTo: data.redirectTo,
     });
 
     if (error) {
