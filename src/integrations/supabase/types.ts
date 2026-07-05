@@ -436,6 +436,8 @@ export type Database = {
           entry_mode: Database["public"]["Enums"]["entry_mode"]
           id: string
           invoice_id: string | null
+          pause_seconds: number
+          paused_at: string | null
           project_id: string
           start_time: string | null
           status: Database["public"]["Enums"]["entry_status"]
@@ -453,6 +455,8 @@ export type Database = {
           entry_mode?: Database["public"]["Enums"]["entry_mode"]
           id?: string
           invoice_id?: string | null
+          pause_seconds?: number
+          paused_at?: string | null
           project_id: string
           start_time?: string | null
           status?: Database["public"]["Enums"]["entry_status"]
@@ -470,6 +474,8 @@ export type Database = {
           entry_mode?: Database["public"]["Enums"]["entry_mode"]
           id?: string
           invoice_id?: string | null
+          pause_seconds?: number
+          paused_at?: string | null
           project_id?: string
           start_time?: string | null
           status?: Database["public"]["Enums"]["entry_status"]

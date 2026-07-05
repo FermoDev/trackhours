@@ -104,7 +104,10 @@ function AdminUsersPage() {
     setResettingId(profile.id);
     try {
       const headers = await authHeaders();
-      const result = await adminResetPassword({ data: { email: profile.email }, headers });
+      const result = await adminResetPassword({
+        data: { email: profile.email, redirectTo: `${window.location.origin}/reset-password` },
+        headers,
+      });
       if (result.success) {
         toast.success(`Password reset email sent to ${profile.email}`);
       } else {
