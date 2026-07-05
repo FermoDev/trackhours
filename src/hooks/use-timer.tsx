@@ -53,6 +53,19 @@ export function TimerProvider({ children }: { children: ReactNode }) {
         clientName: d.clients?.name || undefined,
         projectName: d.projects?.name || undefined,
       });
+      const persistedPause = Number(d.pause_seconds || 0);
+      setPauseOffset(persistedPause);
+      if (d.paused_at) {
+        const startMs = new Date(d.start_time).getTime();
+        const pausedAtMs = new Date(d.paused_at).getTime();
+        const elapsedAtPause = Math.max(0, Math.floor((pausedAtMs - startMs) / 1000) - persistedPause);
+        setIsPaused(true);
+        setPausedElapsed(elapsedAtPause);
+        setElapsed(elapsedAtPause);
+      } else {
+        setIsPaused(false);
+        setPausedElapsed(0);
+      }
     } else {
       setActiveEntry(null);
     }
@@ -95,13 +108,17 @@ export function TimerProvider({ children }: { children: ReactNode }) {
     return () => clearInterval(id);
   }, [activeEntry, isPaused, pauseOffset]);
 
-  const pauseTimer = () => {
+  const pauseTimer = async () => {
     if (!activeEntry || isPaused) return;
     setIsPaused(true);
     setPausedElapsed(elapsed);
+    await supabase
+      .from("time_entries")
+      .update({ paused_at: new Date().toISOString() })
+      .eq("id", activeEntry.id);
   };
 
-  const resumeTimer = () => {
+  const resumeTimer = async () => {
     if (!activeEntry || !isPaused) return;
     const now = Date.now();
     const startMs = new Date(activeEntry.start_time!).getTime();
@@ -109,6 +126,10 @@ export function TimerProvider({ children }: { children: ReactNode }) {
     const newOffset = totalElapsedSinceStart - pausedElapsed;
     setPauseOffset(newOffset);
     setIsPaused(false);
+    await supabase
+      .from("time_entries")
+      .update({ paused_at: null, pause_seconds: newOffset })
+      .eq("id", activeEntry.id);
   };
 
   const startTimer = async (clientId: string, projectId: string, description?: string) => {
@@ -154,7 +175,7 @@ export function TimerProvider({ children }: { children: ReactNode }) {
     const durationMinutes = Math.max(1, Math.round(finalElapsed / 60));
     await supabase
       .from("time_entries")
-      .update({ end_time: new Date().toISOString(), duration_minutes: durationMinutes })
+      .update({ end_time: new Date().toISOString(), duration_minutes: durationMinutes, paused_at: null })
       .eq("id", activeEntry.id);
     setActiveEntry(null);
     setElapsed(0);
