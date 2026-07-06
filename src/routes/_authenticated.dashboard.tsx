@@ -3,6 +3,7 @@ import { useAuth } from "@/lib/auth";
 import { useTimer } from "@/hooks/use-timer";
 import { supabase } from "@/integrations/supabase/client";
 import { useState, useEffect, useCallback, useMemo } from "react";
+import { useRef } from "react";
 import { format } from "date-fns";
 import { formatDuration, formatTimerDisplay } from "@/lib/format";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -58,6 +59,26 @@ function FreelancerDashboard() {
   const deleteProjectFn = useServerFn(deleteProject);
   const deleteClientFn = useServerFn(deleteClient);
   const [deleting, setDeleting] = useState<string | null>(null);
+  const startFormRef = useRef<HTMLDivElement>(null);
+  const manualFormRef = useRef<HTMLDivElement>(null);
+  const timerDescRef = useRef<HTMLTextAreaElement>(null);
+  const manualDescRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    if (!showFullStart) return;
+    requestAnimationFrame(() => {
+      startFormRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      if (selectedClient && selectedProject) timerDescRef.current?.focus();
+    });
+  }, [showFullStart, selectedClient, selectedProject]);
+
+  useEffect(() => {
+    if (!showManual) return;
+    requestAnimationFrame(() => {
+      manualFormRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      if (selectedClient && selectedProject) manualDescRef.current?.focus();
+    });
+  }, [showManual, selectedClient, selectedProject]);
 
   const myProjects = useMemo(
     () => projects.filter(p => p.created_by === user?.id),
@@ -323,13 +344,138 @@ function FreelancerDashboard() {
 
           {/* Other actions row */}
           <div className="flex flex-wrap gap-2">
-            <Button variant="outline" size="sm" className="rounded-xl" onClick={() => { setShowFullStart(true); setShowManual(false); }}>
+            <Button variant="outline" size="sm" className="rounded-xl" onClick={() => { setShowFullStart(v => !v); setShowManual(false); }}>
               <Zap className="h-3.5 w-3.5 mr-1.5" /> New project timer
             </Button>
-            <Button variant="outline" size="sm" className="rounded-xl" onClick={() => { setShowManual(true); setShowFullStart(false); }}>
+            <Button variant="outline" size="sm" className="rounded-xl" onClick={() => { setShowManual(v => !v); setShowFullStart(false); }}>
               <Plus className="h-3.5 w-3.5 mr-1.5" /> Manual entry
             </Button>
           </div>
+
+          {/* Full start form — rendered right below the buttons */}
+          {showFullStart && (
+            <Card ref={startFormRef}>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base">Start a new timer</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="flex gap-1.5">
+                    <Select value={selectedClient} onValueChange={(v) => { setSelectedClient(v); setSelectedProject(""); }}>
+                      <SelectTrigger><SelectValue placeholder="Select client" /></SelectTrigger>
+                      <SelectContent>
+                        {clients.length === 0 && <p className="text-xs text-muted-foreground px-3 py-2">No clients yet</p>}
+                        {clients.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                    <Button variant="outline" size="icon" className="shrink-0" onClick={() => setAddClientOpen(true)} title="Add client"><Plus className="h-3.5 w-3.5" /></Button>
+                  </div>
+                  <div className="flex gap-1.5">
+                    <Select value={selectedProject} onValueChange={setSelectedProject}>
+                      <SelectTrigger><SelectValue placeholder="Select project" /></SelectTrigger>
+                      <SelectContent>
+                        {filteredProjects.length === 0 && <p className="text-xs text-muted-foreground px-3 py-2">{selectedClient ? "No projects for this client" : "Select a client first"}</p>}
+                        {filteredProjects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                    <Button variant="outline" size="icon" className="shrink-0" onClick={() => { setAddProjectClientId(selectedClient); setAddProjectOpen(true); }} disabled={!selectedClient} title="Add project"><Plus className="h-3.5 w-3.5" /></Button>
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">What are you working on? <span className="text-destructive">*</span></Label>
+                  <Textarea
+                    ref={timerDescRef}
+                    placeholder="Describe the task you're about to work on…"
+                    value={timerDesc}
+                    onChange={(e) => setTimerDesc(e.target.value)}
+                    rows={2}
+                  />
+                </div>
+                <Button onClick={handleStart} disabled={!selectedClient || !selectedProject || !timerDesc.trim() || timerLoading} className="rounded-xl">
+                  {timerLoading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Play className="h-4 w-4 mr-2" />}
+                  Start Timer
+                </Button>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Manual entry form — rendered right below the buttons */}
+          {showManual && (
+            <Card ref={manualFormRef}>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base">Add manual entry</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="flex gap-1.5">
+                    <Select value={selectedClient} onValueChange={(v) => { setSelectedClient(v); setSelectedProject(""); }}>
+                      <SelectTrigger><SelectValue placeholder="Select client" /></SelectTrigger>
+                      <SelectContent>
+                        {clients.length === 0 && <p className="text-xs text-muted-foreground px-3 py-2">No clients yet</p>}
+                        {clients.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                    <Button variant="outline" size="icon" className="shrink-0" onClick={() => setAddClientOpen(true)} title="Add client"><Plus className="h-3.5 w-3.5" /></Button>
+                  </div>
+                  <div className="flex gap-1.5">
+                    <Select value={selectedProject} onValueChange={setSelectedProject}>
+                      <SelectTrigger><SelectValue placeholder="Select project" /></SelectTrigger>
+                      <SelectContent>
+                        {filteredProjects.length === 0 && <p className="text-xs text-muted-foreground px-3 py-2">{selectedClient ? "No projects for this client" : "Select a client first"}</p>}
+                        {filteredProjects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                    <Button variant="outline" size="icon" className="shrink-0" onClick={() => { setAddProjectClientId(selectedClient); setAddProjectOpen(true); }} disabled={!selectedClient} title="Add project"><Plus className="h-3.5 w-3.5" /></Button>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" className={cn("justify-start text-left font-normal", !manualDate && "text-muted-foreground")}>
+                        <CalendarIcon className="h-4 w-4 mr-2" />
+                        {format(manualDate, "PPP")}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar mode="single" selected={manualDate} onSelect={(d) => d && setManualDate(d)} disabled={(date) => date > new Date()} initialFocus className={cn("p-3 pointer-events-auto")} />
+                    </PopoverContent>
+                  </Popover>
+                  <div className="flex gap-2">
+                    <Input
+                      type="number"
+                      step={manualUnit === "h" ? "0.25" : "1"}
+                      min="0"
+                      placeholder={manualUnit === "h" ? "Hours" : "Minutes"}
+                      value={manualDuration}
+                      onChange={(e) => setManualDuration(e.target.value)}
+                      className="flex-1"
+                    />
+                    <Select value={manualUnit} onValueChange={(v) => setManualUnit(v as "h" | "m")}>
+                      <SelectTrigger className="w-28"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="h">Hours</SelectItem>
+                        <SelectItem value="m">Minutes</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Description <span className="text-destructive">*</span></Label>
+                  <Textarea
+                    ref={manualDescRef}
+                    placeholder="What did you work on?"
+                    value={manualDesc}
+                    onChange={(e) => setManualDesc(e.target.value)}
+                    rows={2}
+                  />
+                </div>
+                <Button onClick={handleManualEntry} disabled={!selectedClient || !selectedProject || !manualDuration || !manualDesc.trim() || submittingManual} className="rounded-xl">
+                  {submittingManual && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                  {submittingManual ? "Adding…" : "Add Entry"}
+                </Button>
+              </CardContent>
+            </Card>
+          )}
         </div>
       )}
 
@@ -408,129 +554,6 @@ function FreelancerDashboard() {
                 </Button>
               </div>
             </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Full start form — toggled */}
-      {showFullStart && !activeEntry && (
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base">Start a new timer</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div className="flex gap-1.5">
-                <Select value={selectedClient} onValueChange={(v) => { setSelectedClient(v); setSelectedProject(""); }}>
-                  <SelectTrigger><SelectValue placeholder="Select client" /></SelectTrigger>
-                  <SelectContent>
-                    {clients.length === 0 && <p className="text-xs text-muted-foreground px-3 py-2">No clients yet</p>}
-                    {clients.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-                <Button variant="outline" size="icon" className="shrink-0" onClick={() => setAddClientOpen(true)} title="Add client"><Plus className="h-3.5 w-3.5" /></Button>
-              </div>
-              <div className="flex gap-1.5">
-                <Select value={selectedProject} onValueChange={setSelectedProject}>
-                  <SelectTrigger><SelectValue placeholder="Select project" /></SelectTrigger>
-                  <SelectContent>
-                    {filteredProjects.length === 0 && <p className="text-xs text-muted-foreground px-3 py-2">{selectedClient ? "No projects for this client" : "Select a client first"}</p>}
-                    {filteredProjects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-                <Button variant="outline" size="icon" className="shrink-0" onClick={() => { setAddProjectClientId(selectedClient); setAddProjectOpen(true); }} disabled={!selectedClient} title="Add project"><Plus className="h-3.5 w-3.5" /></Button>
-              </div>
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs">What are you working on? <span className="text-destructive">*</span></Label>
-              <Textarea
-                placeholder="Describe the task you're about to work on…"
-                value={timerDesc}
-                onChange={(e) => setTimerDesc(e.target.value)}
-                rows={2}
-              />
-            </div>
-            <Button onClick={handleStart} disabled={!selectedClient || !selectedProject || !timerDesc.trim() || timerLoading} className="rounded-xl">
-              {timerLoading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Play className="h-4 w-4 mr-2" />}
-              Start Timer
-            </Button>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Manual entry form — toggled */}
-      {showManual && !activeEntry && (
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base">Add manual entry</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div className="flex gap-1.5">
-                <Select value={selectedClient} onValueChange={(v) => { setSelectedClient(v); setSelectedProject(""); }}>
-                  <SelectTrigger><SelectValue placeholder="Select client" /></SelectTrigger>
-                  <SelectContent>
-                    {clients.length === 0 && <p className="text-xs text-muted-foreground px-3 py-2">No clients yet</p>}
-                    {clients.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-                <Button variant="outline" size="icon" className="shrink-0" onClick={() => setAddClientOpen(true)} title="Add client"><Plus className="h-3.5 w-3.5" /></Button>
-              </div>
-              <div className="flex gap-1.5">
-                <Select value={selectedProject} onValueChange={setSelectedProject}>
-                  <SelectTrigger><SelectValue placeholder="Select project" /></SelectTrigger>
-                  <SelectContent>
-                    {filteredProjects.length === 0 && <p className="text-xs text-muted-foreground px-3 py-2">{selectedClient ? "No projects for this client" : "Select a client first"}</p>}
-                    {filteredProjects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-                <Button variant="outline" size="icon" className="shrink-0" onClick={() => { setAddProjectClientId(selectedClient); setAddProjectOpen(true); }} disabled={!selectedClient} title="Add project"><Plus className="h-3.5 w-3.5" /></Button>
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" className={cn("justify-start text-left font-normal", !manualDate && "text-muted-foreground")}>
-                    <CalendarIcon className="h-4 w-4 mr-2" />
-                    {format(manualDate, "PPP")}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar mode="single" selected={manualDate} onSelect={(d) => d && setManualDate(d)} disabled={(date) => date > new Date()} initialFocus className={cn("p-3 pointer-events-auto")} />
-                </PopoverContent>
-              </Popover>
-              <div className="flex gap-2">
-                <Input
-                  type="number"
-                  step={manualUnit === "h" ? "0.25" : "1"}
-                  min="0"
-                  placeholder={manualUnit === "h" ? "Hours" : "Minutes"}
-                  value={manualDuration}
-                  onChange={(e) => setManualDuration(e.target.value)}
-                  className="flex-1"
-                />
-                <Select value={manualUnit} onValueChange={(v) => setManualUnit(v as "h" | "m")}>
-                  <SelectTrigger className="w-28"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="h">Hours</SelectItem>
-                    <SelectItem value="m">Minutes</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs">Description <span className="text-destructive">*</span></Label>
-              <Textarea
-                placeholder="What did you work on?"
-                value={manualDesc}
-                onChange={(e) => setManualDesc(e.target.value)}
-                rows={2}
-              />
-            </div>
-            <Button onClick={handleManualEntry} disabled={!selectedClient || !selectedProject || !manualDuration || !manualDesc.trim() || submittingManual} className="rounded-xl">
-              {submittingManual && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-              {submittingManual ? "Adding…" : "Add Entry"}
-            </Button>
           </CardContent>
         </Card>
       )}
