@@ -24,13 +24,16 @@ type EntryWithRelations = Tables<"time_entries"> & {
 function AdminEntriesPage() {
   const [entries, setEntries] = useState<EntryWithRelations[]>([]);
   const [clients, setClients] = useState<Tables<"clients">[]>([]);
+  const [users, setUsers] = useState<{ user_id: string; full_name: string | null }[]>([]);
   const [filterClient, setFilterClient] = useState("all");
+  const [filterUser, setFilterUser] = useState("all");
   const [filterDateFrom, setFilterDateFrom] = useState("");
   const [filterDateTo, setFilterDateTo] = useState("");
 
   const fetchEntries = useCallback(async () => {
     let q = supabase.from("time_entries").select("*, clients(name), projects(name)").order("entry_date", { ascending: false }).limit(200);
     if (filterClient !== "all") q = q.eq("client_id", filterClient);
+    if (filterUser !== "all") q = q.eq("user_id", filterUser);
     if (filterDateFrom) q = q.gte("entry_date", filterDateFrom);
     if (filterDateTo) q = q.lte("entry_date", filterDateTo);
     const { data } = await q;
@@ -40,10 +43,11 @@ function AdminEntriesPage() {
     const { data: profiles } = await supabase.from("profiles").select("user_id, full_name").in("user_id", userIds);
     const profMap = new Map((profiles || []).map(p => [p.user_id, p.full_name]));
     setEntries((data as any[]).map(e => ({ ...e, profiles: { full_name: profMap.get(e.user_id) || "Unknown" } })));
-  }, [filterClient, filterDateFrom, filterDateTo]);
+  }, [filterClient, filterUser, filterDateFrom, filterDateTo]);
 
   useEffect(() => {
     supabase.from("clients").select("*").order("name").then(({ data }) => data && setClients(data));
+    supabase.from("profiles").select("user_id, full_name").eq("status", "active").order("full_name").then(({ data }) => data && setUsers(data));
   }, []);
 
   useEffect(() => { fetchEntries(); }, [fetchEntries]);
@@ -54,10 +58,11 @@ function AdminEntriesPage() {
 
   const resetFilters = () => {
     setFilterClient("all");
+    setFilterUser("all");
     setFilterDateFrom("");
     setFilterDateTo("");
   };
-  const hasFilters = filterClient !== "all" || filterDateFrom || filterDateTo;
+  const hasFilters = filterClient !== "all" || filterUser !== "all" || filterDateFrom || filterDateTo;
 
   return (
     <div className="space-y-6">
@@ -95,6 +100,10 @@ function AdminEntriesPage() {
             <Select value={filterClient} onValueChange={setFilterClient}>
               <SelectTrigger><SelectValue placeholder="All clients" /></SelectTrigger>
               <SelectContent><SelectItem value="all">All clients</SelectItem>{clients.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
+            </Select>
+            <Select value={filterUser} onValueChange={setFilterUser}>
+              <SelectTrigger><SelectValue placeholder="All users" /></SelectTrigger>
+              <SelectContent><SelectItem value="all">All users</SelectItem>{users.map(u => <SelectItem key={u.user_id} value={u.user_id}>{u.full_name || "Unknown"}</SelectItem>)}</SelectContent>
             </Select>
             <Input type="date" value={filterDateFrom} onChange={e => setFilterDateFrom(e.target.value)} />
             <Input type="date" value={filterDateTo} onChange={e => setFilterDateTo(e.target.value)} />
