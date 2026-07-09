@@ -55,23 +55,53 @@ export async function findOrCreateClientForUser(input: {
   const description = input.description?.trim() || null;
   const code = input.code?.trim() || null;
 
+  const callerIsAdmin = await isAdmin(input.userId);
+
   const { data: rows, error: lookupError } = await supabaseAdmin
     .from("clients")
-    .select("id, name")
+    .select("id, name, created_by")
     .eq("status", "active");
 
   if (lookupError) return { success: false, error: "Client lookup failed" };
 
+  // Only auto-join an existing client if the caller already has a verified
+  // relationship with it (admin, creator, or existing assignment). Otherwise
+  // silently joining on a fuzzy name match would let any freelancer enter
+  // another tenant's workspace just by guessing a similar name.
+  const canJoin = async (clientId: string, createdBy: string | null) => {
+    if (callerIsAdmin) return true;
+    if (createdBy === input.userId) return true;
+    const { data } = await supabaseAdmin
+      .from("client_assignments")
+      .select("id")
+      .eq("user_id", input.userId)
+      .eq("client_id", clientId)
+      .maybeSingle();
+    return !!data;
+  };
+
   const exact = rows?.find((row) => sameName(row.name, trimmed));
   if (exact) {
-    await assignClient(input.userId, exact.id);
-    return { success: true, status: "joined", id: exact.id, name: exact.name };
+    if (await canJoin(exact.id, exact.created_by)) {
+      await assignClient(input.userId, exact.id);
+      return { success: true, status: "joined", id: exact.id, name: exact.name };
+    }
+    return {
+      success: false,
+      error: `A client named "${exact.name}" already exists. Ask an admin to assign you to it.`,
+    };
   }
 
   const similar = bestSimilar(trimmed, rows ?? []);
   if (similar) {
-    await assignClient(input.userId, similar.id);
-    return { success: true, status: "joined", id: similar.id, name: similar.name };
+    if (await canJoin(similar.id, similar.created_by)) {
+      await assignClient(input.userId, similar.id);
+      return { success: true, status: "joined", id: similar.id, name: similar.name };
+    }
+    return {
+      success: false,
+      error: `A similar client "${similar.name}" already exists. Ask an admin to assign you to it if this is the same company.`,
+    };
   }
 
   const { data: created, error: insertError } = await supabaseAdmin
@@ -83,12 +113,18 @@ export async function findOrCreateClientForUser(input: {
   if (insertError || !created) {
     const { data: retryRows } = await supabaseAdmin
       .from("clients")
-      .select("id, name")
+      .select("id, name, created_by")
       .eq("status", "active");
     const retry = retryRows?.find((row) => sameName(row.name, trimmed));
     if (retry) {
-      await assignClient(input.userId, retry.id);
-      return { success: true, status: "joined", id: retry.id, name: retry.name };
+      if (await canJoin(retry.id, retry.created_by)) {
+        await assignClient(input.userId, retry.id);
+        return { success: true, status: "joined", id: retry.id, name: retry.name };
+      }
+      return {
+        success: false,
+        error: `A client named "${retry.name}" already exists. Ask an admin to assign you to it.`,
+      };
     }
     return { success: false, error: insertError?.message || "Failed to create client" };
   }
