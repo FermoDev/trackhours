@@ -52,7 +52,7 @@ export const generateInvoicePdf = createServerFn({ method: "POST" })
 
     // Title
     page.drawText("INVOICE", { x: margin, y, size: 24, font: bold });
-    y -= 30;
+    y -= 40;
 
     // Invoice No / Due date header table (2 cols)
     const col = contentWidth / 2;
