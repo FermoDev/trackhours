@@ -9,7 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Download, Plus, Trash2, Receipt } from "lucide-react";
 import { toast } from "sonner";
 
-export const Route = createFileRoute("/_authenticated/admin/invoices")({
+export const Route = createFileRoute("/_authenticated/admin/invoices/")({
   component: AdminInvoicesPage,
 });
 
