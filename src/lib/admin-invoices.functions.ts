@@ -16,10 +16,10 @@ const createSchema = z.object({
   to: z.string(),
   rate: z.number().nonnegative(),
   currency: z.string().min(1),
-  invoiceNumber: z.string().min(1),
   issueDate: z.string(),
   dueDate: z.string().optional().nullable(),
   notes: z.string().optional().nullable(),
+  description: z.string().min(1),
 });
 
 async function ensureAdmin(supabase: any, userId: string) {
