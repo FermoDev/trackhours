@@ -65,7 +65,7 @@ export const generateInvoicePdf = createServerFn({ method: "POST" })
     drawRect(margin + col, y, col, 22);
     drawText(invoice.invoice_number, margin + 8, y - 15);
     drawText(invoice.due_date || "—", margin + col + 8, y - 15);
-    y -= 32;
+    y -= 45;
 
     // From / To (wrap each logical line so long addresses don't spill into the next column)
     const rawFrom = [
