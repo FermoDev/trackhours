@@ -143,7 +143,7 @@ export const generateInvoicePdf = createServerFn({ method: "POST" })
     drawRect(margin + descCol, y, amtCol, totalH, headerBg);
     drawText("Total:", margin + 8, y - 16, { font: bold, size: 11 });
     drawText(fmtMoney(invoice.total_cents), margin + descCol + 8, y - 16, { font: bold, size: 11 });
-    y -= totalH + 80;
+    y -= totalH + 150;
 
     // Payment Details
     drawText("Payment Details:", margin, y, { font: bold, size: 11 });
