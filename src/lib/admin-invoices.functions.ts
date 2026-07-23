@@ -96,28 +96,35 @@ export const createAdminInvoice = createServerFn({ method: "POST" })
 
     const rateCents = Math.round(data.rate * 100);
     let subtotal = 0;
-    const lineItems = Array.from(byProject.values())
-      .sort((a, b) => a.name.localeCompare(b.name))
-      .map((p, idx) => {
-        const hours = Math.round((p.minutes / 60) * 100) / 100;
-        const amount = Math.round(hours * rateCents);
-        subtotal += amount;
-        return {
-          project_id: p.projectId,
-          description: `${p.name} — ${hours.toFixed(2)}h`,
-          hours,
-          rate_cents: rateCents,
-          amount_cents: amount,
-          sort_order: idx,
-        };
-      });
+    for (const p of byProject.values()) {
+      const hours = Math.round((p.minutes / 60) * 100) / 100;
+      subtotal += Math.round(hours * rateCents);
+    }
+    const totalHours = Math.round(
+      (Array.from(byProject.values()).reduce((s, p) => s + p.minutes, 0) / 60) * 100
+    ) / 100;
+    const lineItems = [
+      {
+        project_id: null as string | null,
+        description: data.description,
+        hours: totalHours,
+        rate_cents: rateCents,
+        amount_cents: subtotal,
+        sort_order: 0,
+      },
+    ];
+
+    // Get next invoice number
+    const { data: numData, error: numErr } = await supabaseAdmin.rpc("next_invoice_number");
+    if (numErr || !numData) throw new Error(numErr?.message || "Failed to generate invoice number");
+    const invoiceNumber = numData as string;
 
     const { data: invoice, error: invErr } = await supabaseAdmin
       .from("invoices")
       .insert({
         user_id: data.userId,
         client_id: data.clientId,
-        invoice_number: data.invoiceNumber,
+        invoice_number: invoiceNumber,
         issue_date: data.issueDate,
         due_date: data.dueDate || null,
         period_start: data.from,
@@ -143,6 +150,76 @@ export const createAdminInvoice = createServerFn({ method: "POST" })
     await supabaseAdmin.from("time_entries").update({ invoice_id: invoice.id }).in("id", allEntryIds);
 
     return { invoiceId: invoice.id };
+  });
+
+const summarizeSchema = z.object({
+  userId: z.string().uuid(),
+  clientId: z.string().uuid(),
+  from: z.string(),
+  to: z.string(),
+});
+
+export const summarizeInvoiceWork = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: unknown) => summarizeSchema.parse(data))
+  .handler(async ({ data, context }) => {
+    await ensureAdmin(context.supabase, context.userId);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    const [{ data: entries }, { data: client }] = await Promise.all([
+      supabaseAdmin
+        .from("time_entries")
+        .select("description, projects(name)")
+        .eq("user_id", data.userId)
+        .eq("client_id", data.clientId)
+        .eq("billable", true)
+        .is("invoice_id", null)
+        .gte("entry_date", data.from)
+        .lte("entry_date", data.to),
+      supabaseAdmin.from("clients").select("name").eq("id", data.clientId).single(),
+    ]);
+
+    const clientName = client?.name || "Client";
+    const period = `${data.from} to ${data.to}`;
+    const fallback = `Professional services rendered for ${clientName} (${period})`;
+
+    const items = (entries as any[] | null) || [];
+    if (items.length === 0) return { description: fallback };
+
+    const lines = items
+      .map((e) => `${e.projects?.name || "General"}: ${e.description || ""}`.trim())
+      .filter((l) => l.length > 0)
+      .slice(0, 200)
+      .join("\n");
+
+    if (!lines.trim()) return { description: fallback };
+
+    const key = process.env.LOVABLE_API_KEY;
+    if (!key) return { description: fallback };
+
+    try {
+      const { createLovableAiGatewayProvider } = await import("./ai-gateway.server");
+      const { generateText } = await import("ai");
+      const gateway = createLovableAiGatewayProvider(key);
+      const result = await generateText({
+        model: gateway("openai/gpt-5.5"),
+        messages: [
+          {
+            role: "system",
+            content:
+              "You write a single concise professional invoice description line summarizing freelance work performed. Output ONLY the line itself — no pricing, no hours, no bullet points, no quotes, no prefix. Keep under 25 words.",
+          },
+          {
+            role: "user",
+            content: `Client: ${clientName}\nPeriod: ${period}\n\nWork log entries (project: description):\n${lines}`,
+          },
+        ],
+      });
+      const text = (result.text || "").trim().replace(/^["']|["']$/g, "");
+      return { description: text || fallback };
+    } catch {
+      return { description: fallback };
+    }
   });
 
 const listSchema = z.object({}).optional();
