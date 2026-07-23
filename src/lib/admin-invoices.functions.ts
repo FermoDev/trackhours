@@ -45,10 +45,11 @@ export const previewAdminInvoice = createServerFn({ method: "POST" })
       .lte("entry_date", data.to);
     if (error) throw new Error(error.message);
 
-    const byProject = new Map<string, { projectId: string | null; name: string; minutes: number; entryIds: string[] }>();
+    type Group = { projectId: string | null; name: string; minutes: number; entryIds: string[] };
+    const byProject = new Map<string, Group>();
     for (const e of (entries as any[]) || []) {
       const pid = e.project_id || "none";
-      const cur = byProject.get(pid) || { projectId: e.project_id, name: e.projects?.name || "General", minutes: 0, entryIds: [] };
+      const cur: Group = byProject.get(pid) || { projectId: e.project_id, name: e.projects?.name || "General", minutes: 0, entryIds: [] };
       cur.minutes += e.duration_minutes || 0;
       cur.entryIds.push(e.id);
       byProject.set(pid, cur);
@@ -83,10 +84,11 @@ export const createAdminInvoice = createServerFn({ method: "POST" })
     if (entErr) throw new Error(entErr.message);
     if (!entries || entries.length === 0) throw new Error("No billable un-invoiced entries in this range");
 
-    const byProject = new Map<string, { projectId: string | null; name: string; minutes: number; entryIds: string[] }>();
+    type Group = { projectId: string | null; name: string; minutes: number; entryIds: string[] };
+    const byProject = new Map<string, Group>();
     for (const e of entries as any[]) {
       const pid = e.project_id || "none";
-      const cur = byProject.get(pid) || { projectId: e.project_id, name: e.projects?.name || "General", minutes: 0, entryIds: [] };
+      const cur: Group = byProject.get(pid) || { projectId: e.project_id, name: e.projects?.name || "General", minutes: 0, entryIds: [] };
       cur.minutes += e.duration_minutes || 0;
       cur.entryIds.push(e.id);
       byProject.set(pid, cur);
