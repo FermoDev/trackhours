@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { Link } from "@tanstack/react-router";
-import { Building2, FolderKanban, Loader2, LogOut, User, KeyRound, Shield, Sparkles } from "lucide-react";
+import { Building2, FolderKanban, Loader2, LogOut, User, KeyRound, Shield, Sparkles, Landmark } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/settings")({
   component: SettingsPage,
@@ -18,6 +18,15 @@ function SettingsPage() {
   const { profile, user, role, signOut } = useAuth();
   const [fullName, setFullName] = useState("");
   const [saving, setSaving] = useState(false);
+
+  // Billing info
+  const [address, setAddress] = useState("");
+  const [phone, setPhone] = useState("");
+  const [accountTitle, setAccountTitle] = useState("");
+  const [bankName, setBankName] = useState("");
+  const [iban, setIban] = useState("");
+  const [swift, setSwift] = useState("");
+  const [savingBilling, setSavingBilling] = useState(false);
 
   // Password change state
   const [currentPassword, setCurrentPassword] = useState("");
@@ -29,6 +38,12 @@ function SettingsPage() {
   useEffect(() => {
     if (profile) {
       setFullName(profile.full_name || "");
+      setAddress((profile as any).address || "");
+      setPhone((profile as any).phone || "");
+      setAccountTitle((profile as any).bank_account_title || "");
+      setBankName((profile as any).bank_name || "");
+      setIban((profile as any).iban || "");
+      setSwift((profile as any).swift_code || "");
     }
   }, [profile]);
 
@@ -48,6 +63,25 @@ function SettingsPage() {
     } else {
       toast.success("Settings saved");
     }
+  };
+
+  const handleSaveBilling = async () => {
+    if (!user) return;
+    setSavingBilling(true);
+    const { error } = await supabase
+      .from("profiles")
+      .update({
+        address,
+        phone,
+        bank_account_title: accountTitle,
+        bank_name: bankName,
+        iban,
+        swift_code: swift,
+      } as any)
+      .eq("user_id", user.id);
+    setSavingBilling(false);
+    if (error) toast.error("Failed to save billing info");
+    else toast.success("Billing info saved");
   };
 
   const handleChangePassword = async () => {
@@ -117,6 +151,45 @@ function SettingsPage() {
           <Button onClick={handleSave} disabled={saving} className="rounded-xl">
             {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
             {saving ? "Saving…" : "Save changes"}
+          </Button>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base flex items-center gap-2"><Landmark className="h-4 w-4 text-muted-foreground" />Billing info</CardTitle>
+          <p className="text-xs text-muted-foreground pt-1">Used on invoices generated for you</p>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-1.5 md:col-span-2">
+              <Label htmlFor="address">Address</Label>
+              <Input id="address" value={address} onChange={(e) => setAddress(e.target.value)} placeholder="Street, city, country" />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="phone">Phone</Label>
+              <Input id="phone" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+1 555 555 5555" />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="accountTitle">Account title</Label>
+              <Input id="accountTitle" value={accountTitle} onChange={(e) => setAccountTitle(e.target.value)} />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="bankName">Bank</Label>
+              <Input id="bankName" value={bankName} onChange={(e) => setBankName(e.target.value)} />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="iban">IBAN / Account number</Label>
+              <Input id="iban" value={iban} onChange={(e) => setIban(e.target.value)} />
+            </div>
+            <div className="space-y-1.5 md:col-span-2">
+              <Label htmlFor="swift">SWIFT code</Label>
+              <Input id="swift" value={swift} onChange={(e) => setSwift(e.target.value)} />
+            </div>
+          </div>
+          <Button onClick={handleSaveBilling} disabled={savingBilling} className="rounded-xl">
+            {savingBilling && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+            {savingBilling ? "Saving…" : "Save billing info"}
           </Button>
         </CardContent>
       </Card>
