@@ -10,7 +10,6 @@ import { Button } from "@/components/ui/button";
 const workNav = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { to: "/timesheet", label: "Timesheet", icon: FileText },
-  { to: "/invoices", label: "Invoices", icon: Receipt },
 ];
 
 const accountNav = [
@@ -24,6 +23,7 @@ const adminNav = [
   { to: "/admin/projects", label: "Projects", icon: FolderKanban },
   { to: "/admin/assignments", label: "Assignments", icon: LinkIcon },
   { to: "/admin/entries", label: "All Entries", icon: Clock },
+  { to: "/admin/invoices", label: "Invoices", icon: Receipt },
   { to: "/admin/reports", label: "Reports", icon: BarChart3 },
 ];
 

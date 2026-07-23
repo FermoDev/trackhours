@@ -302,29 +302,47 @@ export type Database = {
       }
       profiles: {
         Row: {
+          address: string | null
+          bank_account_title: string | null
+          bank_name: string | null
           created_at: string
           email: string
           full_name: string
+          iban: string | null
           id: string
+          phone: string | null
           status: Database["public"]["Enums"]["entity_status"]
+          swift_code: string | null
           updated_at: string
           user_id: string
         }
         Insert: {
+          address?: string | null
+          bank_account_title?: string | null
+          bank_name?: string | null
           created_at?: string
           email?: string
           full_name?: string
+          iban?: string | null
           id?: string
+          phone?: string | null
           status?: Database["public"]["Enums"]["entity_status"]
+          swift_code?: string | null
           updated_at?: string
           user_id: string
         }
         Update: {
+          address?: string | null
+          bank_account_title?: string | null
+          bank_name?: string | null
           created_at?: string
           email?: string
           full_name?: string
+          iban?: string | null
           id?: string
+          phone?: string | null
           status?: Database["public"]["Enums"]["entity_status"]
+          swift_code?: string | null
           updated_at?: string
           user_id?: string
         }
