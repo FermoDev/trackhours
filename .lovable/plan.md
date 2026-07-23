@@ -1,55 +1,27 @@
-## Goal
+## Changes
 
-Replace the current freelancer-facing invoicing with an **admin-only** flow that generates one invoice PDF per freelancer, per client, over a chosen date range, using the uploaded Fermo template as the layout.
+### 1. Auto invoice numbers (INV-0001, global sequence)
+- Add Postgres sequence `invoice_number_seq` and a helper `next_invoice_number()` returning `INV-` + zero-padded 4-digit counter (widens automatically past 9999).
+- Seed sequence from current max existing invoice number.
+- Remove the invoice number input from `admin.invoices.new.tsx`. `createAdminInvoice` in `src/lib/admin-invoices.functions.ts` calls `next_invoice_number()` instead of accepting one from the client.
 
-## Template summary (from upload)
+### 2. AI-generated description summary
+- Ensure `LOVABLE_API_KEY` exists (`ai_gateway--create`).
+- New `src/lib/ai-gateway.server.ts` provider helper (Lovable AI Gateway, `openai/gpt-5.5`).
+- New server fn `summarizeInvoiceWork({ userId, clientId, from, to })` in `src/lib/admin-invoices.functions.ts`: admin-only, pulls the freelancer's entry descriptions + project names in range, asks the model for a single professional one-line summary of the work performed. Falls back to `Professional services rendered for {Client} ({period})` if the model call fails or descriptions are empty.
+- `admin.invoices.new.tsx`: after the user picks freelancer/client/dates, auto-generate the summary into a textarea the admin can edit. "Regenerate" button re-runs the server fn. The final edited string is passed to `createAdminInvoice` as `description`.
+- `createAdminInvoice` accepts a required `description` string and stores it as a single invoice line item (`description = <summary>`, `amount_cents = subtotal`). Hours/rate are still used server-side to compute the total, and still saved on the invoice record (`subtotal_cents`, `total_cents`), but not written into any line item description.
 
-- **Bill To** is fixed: Fermo Technologies (hardcoded in PDF).
-- **Bill From** = the freelancer (name, address, email, phone).
-- Header: Invoice No + Due date.
-- Single Description row + Total.
-- Payment Details block: Account title, Bank, IBAN, SWIFT.
+### 3. PDF: hide hours and rate
+- `src/lib/invoices.functions.ts` `generateInvoicePdf`: the Description/Amount table renders exactly one row — the invoice's summary description and the total amount — followed by the existing Total row. No per-project hour/rate lines. Everything else (From/To, Payment Details, Invoice No, Due date) stays.
 
-## Answers baked in
+### 4. Cleanup
+- Drop the invoice-number field from the new-invoice form and its validation.
+- Preview step still shows per-project hours to the admin (internal calculation aid), but marked "for your reference — not shown on invoice".
 
-- Existing `/invoices` freelancer flow → replaced entirely.
-- Bill-to = Fermo Technologies (from template).
-- Rate = admin enters per invoice (flat hourly, single currency).
-- Period = free date range (from/to dates).
-- Line items: **one row per project**, format `ProjectName — Xh @ $Y = $Z` (matches the template's single-description cell by stacking one line per project inside it). Total row underneath.
-- Entries pulled: all billable, un-invoiced `time_entries` for that user+client in the range (existing behavior).
+## Technical notes
 
-## Schema changes
-
-Add to `profiles` (freelancer bill-from + payment info; editable by the user in Settings and by admins):
-- `address text`, `phone text`
-- `bank_account_title text`, `bank_name text`, `iban text`, `swift_code text`
-
-No other schema changes — the existing `invoices` / `invoice_line_items` / `time_entries.invoice_id` tables already support per-user, per-client invoices. RLS updated so admins can create/read/update invoices for any user.
-
-## Backend
-
-- New `src/lib/admin-invoices.functions.ts`:
-  - `previewAdminInvoice({ userId, clientId, from, to, rate })` → grouped-by-project preview (hours, amount) using `supabaseAdmin` after `has_role('admin')` check.
-  - `createAdminInvoice(...)` → inserts `invoices` (with `user_id` = target freelancer), line items, stamps `invoice_id` on the source entries.
-- Rewrite `src/lib/invoices.functions.ts` `generateInvoicePdf` to render the Fermo layout: header (Invoice No / Due date), From/To two-column block, Description/Amount table with one row per project + Total, Payment Details block. Pulls freelancer info from their `profiles` row.
-
-## UI
-
-- Delete freelancer routes: `_authenticated.invoices.tsx`, `_authenticated.invoices.new.tsx`, `_authenticated.invoices.$id.tsx`. Remove Invoices from freelancer sidebar.
-- New admin routes under `_authenticated/admin/`:
-  - `admin.invoices.tsx` — list of all generated invoices (freelancer, client, period, total, PDF).
-  - `admin.invoices.new.tsx` — form: User select → Client select (limited to clients that user has billable un-invoiced hours for) → From/To dates → Rate → Currency → Invoice #/Due date → Preview table (per-project hours) → Create → auto-download PDF.
-  - `admin.invoices.$id.tsx` — view/download an existing invoice.
-- Add "Invoices" to the Admin sidebar section.
-- Extend `_authenticated.settings.tsx` with a "Billing info" card so freelancers can fill in their address, phone, and bank details (used as From block on invoices).
-
-## Migration order
-
-1. Add profile columns + RLS updates for admin invoice access.
-2. Ship server fns + PDF rewrite + admin UI + settings extension in the same build.
-3. Delete freelancer invoice routes.
-
-## Open item
-
-The template shows a single "Description" cell. I'll render each project on its own line inside that cell (`Project Management — 42.5h @ $50 = $2,125.00`) plus a bold Total row — closest match to the template while still itemizing per project. Say the word if you'd rather have one flat description ("Services rendered Feb–Jun 2026") with just the grand total.
+- Migration: `CREATE SEQUENCE public.invoice_number_seq;` + `SELECT setval(...)` from existing max + `CREATE FUNCTION public.next_invoice_number() ... SECURITY DEFINER SET search_path = ''`. Grant execute to `authenticated`.
+- AI call uses `generateText` with a short system prompt ("Write one concise professional invoice description line summarizing this freelance work. No pricing, no hours, no bullet points.") and the concatenated `project_name: description` list as user content.
+- Description column on `invoice_line_items` is already `text`; no schema change needed for storing the summary.
+- Admin form state: add `description` (string) + `descriptionLoading` (bool); auto-fetch when preview is loaded, allow manual edit + regenerate.
