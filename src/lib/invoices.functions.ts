@@ -108,12 +108,12 @@ export const generateInvoicePdf = createServerFn({ method: "POST" })
         ty -= 13;
       });
     });
-    y -= boxH + 16;
+    y -= boxH + 50;
 
     // Period line (optional context)
     if (invoice.period_start && invoice.period_end) {
       drawText(`Period: ${invoice.period_start} to ${invoice.period_end}`, margin, y, { color: grey, size: 10 });
-      y -= 18;
+      y -= 30;
     }
 
     // Description / Amount table
