@@ -2,16 +2,17 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
-import { previewAdminInvoice, createAdminInvoice } from "@/lib/admin-invoices.functions";
+import { previewAdminInvoice, createAdminInvoice, summarizeInvoiceWork } from "@/lib/admin-invoices.functions";
 import { generateInvoicePdf } from "@/lib/invoices.functions";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "sonner";
-import { Loader2 } from "lucide-react";
+import { Loader2, Sparkles } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/admin/invoices/new")({
   component: NewAdminInvoicePage,
@@ -22,6 +23,7 @@ function NewAdminInvoicePage() {
   const previewFn = useServerFn(previewAdminInvoice);
   const createFn = useServerFn(createAdminInvoice);
   const pdfFn = useServerFn(generateInvoicePdf);
+  const summarizeFn = useServerFn(summarizeInvoiceWork);
 
   const [users, setUsers] = useState<{ user_id: string; full_name: string; email: string }[]>([]);
   const [clients, setClients] = useState<{ id: string; name: string }[]>([]);
@@ -31,10 +33,11 @@ function NewAdminInvoicePage() {
   const [to, setTo] = useState("");
   const [rate, setRate] = useState("50");
   const [currency, setCurrency] = useState("USD");
-  const [invoiceNumber, setInvoiceNumber] = useState("");
   const [issueDate, setIssueDate] = useState(new Date().toISOString().slice(0, 10));
   const [dueDate, setDueDate] = useState("");
   const [notes, setNotes] = useState("");
+  const [description, setDescription] = useState("");
+  const [summarizing, setSummarizing] = useState(false);
   const [preview, setPreview] = useState<{ projects: { name: string; hours: number }[] } | null>(null);
   const [previewing, setPreviewing] = useState(false);
   const [creating, setCreating] = useState(false);
@@ -54,7 +57,20 @@ function NewAdminInvoicePage() {
   }, [preview, rateNum]);
 
   const canPreview = userId && clientId && from && to;
-  const canCreate = canPreview && rateNum > 0 && invoiceNumber && issueDate && preview && preview.projects.length > 0;
+  const canCreate = canPreview && rateNum > 0 && issueDate && description.trim().length > 0 && preview && preview.projects.length > 0;
+
+  const doSummarize = async () => {
+    if (!canPreview) return;
+    setSummarizing(true);
+    try {
+      const res = await summarizeFn({ data: { userId, clientId, from, to } });
+      setDescription(res.description);
+    } catch (e: any) {
+      toast.error(e?.message || "Failed to generate description");
+    } finally {
+      setSummarizing(false);
+    }
+  };
 
   const doPreview = async () => {
     if (!canPreview) return;
@@ -63,7 +79,12 @@ function NewAdminInvoicePage() {
     try {
       const res = await previewFn({ data: { userId, clientId, from, to } });
       setPreview(res as any);
-      if (!res.projects.length) toast.message("No billable un-invoiced entries in this range.");
+      if (!res.projects.length) {
+        toast.message("No billable un-invoiced entries in this range.");
+      } else {
+        // Auto-generate description
+        doSummarize();
+      }
     } catch (e: any) {
       toast.error(e?.message || "Preview failed");
     } finally {
@@ -79,9 +100,10 @@ function NewAdminInvoicePage() {
         data: {
           userId, clientId, from, to,
           rate: rateNum, currency,
-          invoiceNumber, issueDate,
+          issueDate,
           dueDate: dueDate || null,
           notes: notes || null,
+          description: description.trim(),
         },
       });
       toast.success("Invoice created");
@@ -152,7 +174,10 @@ function NewAdminInvoicePage() {
 
       {preview && (
         <Card>
-          <CardHeader className="pb-3"><CardTitle className="text-base">Preview</CardTitle></CardHeader>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">Preview</CardTitle>
+            <p className="text-xs text-muted-foreground mt-1">For your reference — hours and rate are not shown on the invoice.</p>
+          </CardHeader>
           <CardContent>
             {preview.projects.length === 0 ? (
               <p className="text-sm text-muted-foreground">No billable un-invoiced entries in this range.</p>
@@ -185,13 +210,27 @@ function NewAdminInvoicePage() {
         </Card>
       )}
 
+      {preview && preview.projects.length > 0 && (
+        <Card>
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-base">Invoice description</CardTitle>
+              <Button variant="outline" size="sm" onClick={doSummarize} disabled={summarizing} className="rounded-xl">
+                {summarizing ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Sparkles className="h-4 w-4 mr-2" />}
+                Regenerate
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">Single line shown on the PDF. Edit as needed.</p>
+          </CardHeader>
+          <CardContent>
+            <Textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={2} placeholder={summarizing ? "Generating..." : "Description of work"} />
+          </CardContent>
+        </Card>
+      )}
+
       <Card>
         <CardHeader className="pb-3"><CardTitle className="text-base">Invoice details</CardTitle></CardHeader>
         <CardContent className="grid gap-4 md:grid-cols-2">
-          <div className="space-y-1.5">
-            <Label>Invoice number</Label>
-            <Input value={invoiceNumber} onChange={(e) => setInvoiceNumber(e.target.value)} placeholder="INV-2026-001" />
-          </div>
           <div className="space-y-1.5">
             <Label>Currency</Label>
             <Input value={currency} onChange={(e) => setCurrency(e.target.value.toUpperCase())} maxLength={4} />
