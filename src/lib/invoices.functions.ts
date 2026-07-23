@@ -10,18 +10,22 @@ export const generateInvoicePdf = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
 
-    const { data: invoice, error: invErr } = await supabase
+    // Admin can generate any invoice; others only their own.
+    const { data: isAdmin } = await supabase.rpc("has_role", { _user_id: userId, _role: "admin" });
+
+    let q = supabase
       .from("invoices")
-      .select("*, clients(name, code), invoice_line_items(*)")
-      .eq("id", data.invoiceId)
-      .eq("user_id", userId)
-      .single();
+      .select("*, clients(name), invoice_line_items(*)")
+      .eq("id", data.invoiceId);
+    if (!isAdmin) q = q.eq("user_id", userId);
+    const { data: invoice, error: invErr } = await q.single();
     if (invErr || !invoice) throw new Error("Invoice not found");
 
-    const { data: profile } = await supabase
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: profile } = await supabaseAdmin
       .from("profiles")
-      .select("full_name, email")
-      .eq("user_id", userId)
+      .select("full_name, email, address, phone, bank_account_title, bank_name, iban, swift_code")
+      .eq("user_id", invoice.user_id)
       .single();
 
     const { PDFDocument, StandardFonts, rgb } = await import("pdf-lib");
@@ -32,81 +36,133 @@ export const generateInvoicePdf = createServerFn({ method: "POST" })
     const { height, width } = page.getSize();
     const margin = 50;
     let y = height - margin;
+    const contentWidth = width - margin * 2;
+    const grey = rgb(0.55, 0.55, 0.55);
+    const border = rgb(0.82, 0.82, 0.82);
+    const headerBg = rgb(0.96, 0.96, 0.96);
 
     const fmtMoney = (cents: number) =>
       `${invoice.currency} ${(cents / 100).toFixed(2)}`;
 
-    // Header
-    page.drawText("INVOICE", { x: margin, y, size: 28, font: bold, color: rgb(0, 0.73, 0.41) });
-    page.drawText(`#${invoice.invoice_number}`, { x: width - margin - 120, y, size: 16, font: bold });
-    y -= 40;
+    const drawText = (t: string, x: number, yy: number, opts?: { size?: number; font?: any; color?: any }) =>
+      page.drawText(t || "", { x, y: yy, size: opts?.size ?? 10, font: opts?.font ?? font, color: opts?.color });
+
+    const drawRect = (x: number, yy: number, w: number, h: number, fill?: any) =>
+      page.drawRectangle({ x, y: yy - h, width: w, height: h, borderColor: border, borderWidth: 0.6, color: fill });
+
+    // Title
+    page.drawText("INVOICE", { x: margin, y, size: 24, font: bold });
+    y -= 30;
+
+    // Invoice No / Due date header table (2 cols)
+    const col = contentWidth / 2;
+    drawRect(margin, y, col, 22, headerBg);
+    drawRect(margin + col, y, col, 22, headerBg);
+    drawText("Invoice No", margin + 8, y - 15, { font: bold, size: 10 });
+    drawText("Invoice due", margin + col + 8, y - 15, { font: bold, size: 10 });
+    y -= 22;
+    drawRect(margin, y, col, 22);
+    drawRect(margin + col, y, col, 22);
+    drawText(invoice.invoice_number, margin + 8, y - 15);
+    drawText(invoice.due_date || "—", margin + col + 8, y - 15);
+    y -= 32;
 
     // From / To
-    page.drawText("From", { x: margin, y, size: 9, font: bold, color: rgb(0.5, 0.5, 0.5) });
-    page.drawText("Bill to", { x: width / 2, y, size: 9, font: bold, color: rgb(0.5, 0.5, 0.5) });
-    y -= 14;
-    page.drawText(profile?.full_name || profile?.email || "", { x: margin, y, size: 11, font });
-    page.drawText((invoice.clients as any)?.name || "", { x: width / 2, y, size: 11, font });
-    y -= 14;
-    if (profile?.email) page.drawText(profile.email, { x: margin, y, size: 10, font, color: rgb(0.4, 0.4, 0.4) });
-    y -= 30;
+    const fromLines = [
+      profile?.full_name || "",
+      profile?.address || "",
+      profile?.email ? `Email: ${profile.email}` : "",
+      profile?.phone ? `Phone: ${profile.phone}` : "",
+    ].filter(Boolean);
+    const toLines = [
+      "Fermo Technologies",
+      "1971, Shannon Drive, Mississauga, Ontario,",
+      "Canada, L5H3Z6",
+      "Email: billing@fermo.io",
+      "Phone: +1 (416) 8317292",
+    ];
+    const boxH = Math.max(fromLines.length, toLines.length) * 13 + 34;
+    drawRect(margin, y, col, 22, headerBg);
+    drawRect(margin + col, y, col, 22, headerBg);
+    drawText("From", margin + 8, y - 15, { font: bold, size: 10 });
+    drawText("To", margin + col + 8, y - 15, { font: bold, size: 10 });
+    y -= 22;
+    drawRect(margin, y, col, boxH);
+    drawRect(margin + col, y, col, boxH);
+    let fy = y - 15;
+    drawText(fromLines[0] || "", margin + 8, fy, { font: bold });
+    fy -= 14;
+    for (let i = 1; i < fromLines.length; i++) { drawText(fromLines[i], margin + 8, fy); fy -= 13; }
+    let ty = y - 15;
+    drawText(toLines[0], margin + col + 8, ty, { font: bold });
+    ty -= 14;
+    for (let i = 1; i < toLines.length; i++) { drawText(toLines[i], margin + col + 8, ty); ty -= 13; }
+    y -= boxH + 16;
 
-    // Dates
-    const drawKV = (label: string, val: string, x: number, yy: number) => {
-      page.drawText(label, { x, y: yy, size: 9, font: bold, color: rgb(0.5, 0.5, 0.5) });
-      page.drawText(val, { x, y: yy - 13, size: 11, font });
-    };
-    drawKV("Issue date", invoice.issue_date, margin, y);
-    if (invoice.due_date) drawKV("Due date", invoice.due_date, margin + 130, y);
+    // Period line (optional context)
     if (invoice.period_start && invoice.period_end) {
-      drawKV("Period", `${invoice.period_start} → ${invoice.period_end}`, margin + 260, y);
+      drawText(`Period: ${invoice.period_start} to ${invoice.period_end}`, margin, y, { color: grey, size: 10 });
+      y -= 18;
     }
-    y -= 40;
 
-    // Line items table
-    page.drawLine({ start: { x: margin, y }, end: { x: width - margin, y }, thickness: 0.5, color: rgb(0.8, 0.8, 0.8) });
-    y -= 14;
-    page.drawText("Description", { x: margin, y, size: 9, font: bold });
-    page.drawText("Hours", { x: width - margin - 200, y, size: 9, font: bold });
-    page.drawText("Rate", { x: width - margin - 130, y, size: 9, font: bold });
-    page.drawText("Amount", { x: width - margin - 60, y, size: 9, font: bold });
-    y -= 8;
-    page.drawLine({ start: { x: margin, y }, end: { x: width - margin, y }, thickness: 0.5, color: rgb(0.8, 0.8, 0.8) });
-    y -= 14;
+    // Description / Amount table
+    const amtCol = 140;
+    const descCol = contentWidth - amtCol;
+    drawRect(margin, y, descCol, 22, headerBg);
+    drawRect(margin + descCol, y, amtCol, 22, headerBg);
+    drawText("Description", margin + 8, y - 15, { font: bold, size: 10 });
+    drawText("Amount", margin + descCol + 8, y - 15, { font: bold, size: 10 });
+    y -= 22;
 
-    const items = (invoice.invoice_line_items as any[]) || [];
-    items.sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
+    const items = ((invoice.invoice_line_items as any[]) || []).slice().sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
     for (const item of items) {
-      const descLines = wrapText(item.description, 55);
-      for (let i = 0; i < descLines.length; i++) {
-        page.drawText(descLines[i], { x: margin, y, size: 10, font });
-        if (i === 0) {
-          page.drawText(Number(item.hours).toFixed(2), { x: width - margin - 200, y, size: 10, font });
-          page.drawText(fmtMoney(item.rate_cents), { x: width - margin - 130, y, size: 10, font });
-          page.drawText(fmtMoney(item.amount_cents), { x: width - margin - 60, y, size: 10, font });
-        }
-        y -= 14;
-      }
-      y -= 4;
+      const lines = wrapText(item.description, 60);
+      const rowH = Math.max(20, lines.length * 13 + 6);
+      drawRect(margin, y, descCol, rowH);
+      drawRect(margin + descCol, y, amtCol, rowH);
+      let ly = y - 14;
+      for (const line of lines) { drawText(line, margin + 8, ly); ly -= 13; }
+      drawText(fmtMoney(item.amount_cents), margin + descCol + 8, y - 14);
+      y -= rowH;
     }
 
-    y -= 10;
-    page.drawLine({ start: { x: margin, y }, end: { x: width - margin, y }, thickness: 0.5, color: rgb(0.8, 0.8, 0.8) });
-    y -= 20;
-    page.drawText("Total", { x: width - margin - 130, y, size: 12, font: bold });
-    page.drawText(fmtMoney(invoice.total_cents), { x: width - margin - 60, y, size: 12, font: bold });
-    y -= 30;
+    // Total row
+    const totalH = 24;
+    drawRect(margin, y, descCol, totalH, headerBg);
+    drawRect(margin + descCol, y, amtCol, totalH, headerBg);
+    drawText("Total:", margin + 8, y - 16, { font: bold, size: 11 });
+    drawText(fmtMoney(invoice.total_cents), margin + descCol + 8, y - 16, { font: bold, size: 11 });
+    y -= totalH + 24;
+
+    // Payment Details
+    drawText("Payment Details:", margin, y, { font: bold, size: 11 });
+    y -= 16;
+    const rows: [string, string][] = [
+      ["Account title", profile?.bank_account_title || "—"],
+      ["Bank", profile?.bank_name || "—"],
+      ["IBAN", profile?.iban || "—"],
+      ["SWIFT Code", profile?.swift_code || "—"],
+    ];
+    const labelCol = 140;
+    const valCol = contentWidth - labelCol;
+    for (let i = 0; i < rows.length; i++) {
+      const [k, v] = rows[i];
+      const bg = i === 0 ? headerBg : undefined;
+      drawRect(margin, y, labelCol, 22, bg);
+      drawRect(margin + labelCol, y, valCol, 22, bg);
+      drawText(k, margin + 8, y - 15, { font: i === 0 ? bold : font });
+      drawText(v, margin + labelCol + 8, y - 15, { font: i === 0 ? bold : font });
+      y -= 22;
+    }
 
     if (invoice.notes) {
-      page.drawText("Notes", { x: margin, y, size: 9, font: bold, color: rgb(0.5, 0.5, 0.5) });
+      y -= 20;
+      drawText("Notes", margin, y, { font: bold, size: 10, color: grey });
       y -= 14;
-      for (const line of wrapText(invoice.notes, 80)) {
-        page.drawText(line, { x: margin, y, size: 10, font });
-        y -= 13;
-      }
+      for (const line of wrapText(invoice.notes, 90)) { drawText(line, margin, y); y -= 13; }
     }
 
-    await supabase.from("invoices").update({ pdf_generated_at: new Date().toISOString() }).eq("id", data.invoiceId);
+    await supabaseAdmin.from("invoices").update({ pdf_generated_at: new Date().toISOString() }).eq("id", data.invoiceId);
 
     const bytes = await pdf.save();
     let binary = "";
