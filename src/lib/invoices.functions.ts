@@ -67,21 +67,26 @@ export const generateInvoicePdf = createServerFn({ method: "POST" })
     drawText(invoice.due_date || "—", margin + col + 8, y - 15);
     y -= 32;
 
-    // From / To
-    const fromLines = [
+    // From / To (wrap each logical line so long addresses don't spill into the next column)
+    const rawFrom = [
       profile?.full_name || "",
       profile?.address || "",
       profile?.email ? `Email: ${profile.email}` : "",
       profile?.phone ? `Phone: ${profile.phone}` : "",
     ].filter(Boolean);
-    const toLines = [
+    const rawTo = [
       "Fermo Technologies",
       "1971, Shannon Drive, Mississauga, Ontario,",
       "Canada, L5H3Z6",
       "Email: billing@fermo.io",
       "Phone: +1 (416) 8317292",
     ];
-    const boxH = Math.max(fromLines.length, toLines.length) * 13 + 34;
+    const COL_WRAP = 54; // safe char count for size-10 Helvetica in ~256pt column with 8pt padding
+    const fromWrapped: string[][] = rawFrom.map((l) => wrapText(l, COL_WRAP));
+    const toWrapped: string[][] = rawTo.map((l) => wrapText(l, COL_WRAP));
+    const fromCount = fromWrapped.reduce((s, a) => s + a.length, 0);
+    const toCount = toWrapped.reduce((s, a) => s + a.length, 0);
+    const boxH = Math.max(fromCount, toCount) * 13 + 22;
     drawRect(margin, y, col, 22, headerBg);
     drawRect(margin + col, y, col, 22, headerBg);
     drawText("From", margin + 8, y - 15, { font: bold, size: 10 });
@@ -90,13 +95,19 @@ export const generateInvoicePdf = createServerFn({ method: "POST" })
     drawRect(margin, y, col, boxH);
     drawRect(margin + col, y, col, boxH);
     let fy = y - 15;
-    drawText(fromLines[0] || "", margin + 8, fy, { font: bold });
-    fy -= 14;
-    for (let i = 1; i < fromLines.length; i++) { drawText(fromLines[i], margin + 8, fy); fy -= 13; }
+    fromWrapped.forEach((lines, i) => {
+      lines.forEach((ln) => {
+        drawText(ln, margin + 8, fy, { font: i === 0 ? bold : font });
+        fy -= 13;
+      });
+    });
     let ty = y - 15;
-    drawText(toLines[0], margin + col + 8, ty, { font: bold });
-    ty -= 14;
-    for (let i = 1; i < toLines.length; i++) { drawText(toLines[i], margin + col + 8, ty); ty -= 13; }
+    toWrapped.forEach((lines, i) => {
+      lines.forEach((ln) => {
+        drawText(ln, margin + col + 8, ty, { font: i === 0 ? bold : font });
+        ty -= 13;
+      });
+    });
     y -= boxH + 16;
 
     // Period line (optional context)
@@ -145,14 +156,21 @@ export const generateInvoicePdf = createServerFn({ method: "POST" })
     ];
     const labelCol = 140;
     const valCol = contentWidth - labelCol;
+    const VAL_WRAP = 44;
     for (let i = 0; i < rows.length; i++) {
       const [k, v] = rows[i];
       const bg = i === 0 ? headerBg : undefined;
-      drawRect(margin, y, labelCol, 22, bg);
-      drawRect(margin + labelCol, y, valCol, 22, bg);
+      const vLines = wrapText(v, VAL_WRAP);
+      const rowH = Math.max(22, vLines.length * 13 + 8);
+      drawRect(margin, y, labelCol, rowH, bg);
+      drawRect(margin + labelCol, y, valCol, rowH, bg);
       drawText(k, margin + 8, y - 15, { font: i === 0 ? bold : font });
-      drawText(v, margin + labelCol + 8, y - 15, { font: i === 0 ? bold : font });
-      y -= 22;
+      let vy = y - 15;
+      for (const ln of vLines) {
+        drawText(ln, margin + labelCol + 8, vy, { font: i === 0 ? bold : font });
+        vy -= 13;
+      }
+      y -= rowH;
     }
 
     if (invoice.notes) {
