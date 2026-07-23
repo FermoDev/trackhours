@@ -17,12 +17,9 @@ import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedTimesheetRouteImport } from './routes/_authenticated.timesheet'
 import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated.settings'
-import { Route as AuthenticatedInvoicesRouteImport } from './routes/_authenticated.invoices'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated.dashboard'
 import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated.admin'
 import { Route as AuthenticatedAdminIndexRouteImport } from './routes/_authenticated.admin.index'
-import { Route as AuthenticatedInvoicesNewRouteImport } from './routes/_authenticated.invoices.new'
-import { Route as AuthenticatedInvoicesIdRouteImport } from './routes/_authenticated.invoices.$id'
 import { Route as AuthenticatedAdminUsersRouteImport } from './routes/_authenticated.admin.users'
 import { Route as AuthenticatedAdminReportsRouteImport } from './routes/_authenticated.admin.reports'
 import { Route as AuthenticatedAdminProjectsRouteImport } from './routes/_authenticated.admin.projects'
@@ -72,11 +69,6 @@ const AuthenticatedSettingsRoute = AuthenticatedSettingsRouteImport.update({
   path: '/settings',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
-const AuthenticatedInvoicesRoute = AuthenticatedInvoicesRouteImport.update({
-  id: '/invoices',
-  path: '/invoices',
-  getParentRoute: () => AuthenticatedRoute,
-} as any)
 const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
@@ -91,17 +83,6 @@ const AuthenticatedAdminIndexRoute = AuthenticatedAdminIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => AuthenticatedAdminRoute,
-} as any)
-const AuthenticatedInvoicesNewRoute =
-  AuthenticatedInvoicesNewRouteImport.update({
-    id: '/new',
-    path: '/new',
-    getParentRoute: () => AuthenticatedInvoicesRoute,
-  } as any)
-const AuthenticatedInvoicesIdRoute = AuthenticatedInvoicesIdRouteImport.update({
-  id: '/$id',
-  path: '/$id',
-  getParentRoute: () => AuthenticatedInvoicesRoute,
 } as any)
 const AuthenticatedAdminUsersRoute = AuthenticatedAdminUsersRouteImport.update({
   id: '/users',
@@ -163,7 +144,6 @@ export interface FileRoutesByFullPath {
   '/signup': typeof SignupRoute
   '/admin': typeof AuthenticatedAdminRouteWithChildren
   '/dashboard': typeof AuthenticatedDashboardRoute
-  '/invoices': typeof AuthenticatedInvoicesRouteWithChildren
   '/settings': typeof AuthenticatedSettingsRoute
   '/timesheet': typeof AuthenticatedTimesheetRoute
   '/admin/assignments': typeof AuthenticatedAdminAssignmentsRoute
@@ -172,8 +152,6 @@ export interface FileRoutesByFullPath {
   '/admin/projects': typeof AuthenticatedAdminProjectsRoute
   '/admin/reports': typeof AuthenticatedAdminReportsRoute
   '/admin/users': typeof AuthenticatedAdminUsersRoute
-  '/invoices/$id': typeof AuthenticatedInvoicesIdRoute
-  '/invoices/new': typeof AuthenticatedInvoicesNewRoute
   '/admin/': typeof AuthenticatedAdminIndexRoute
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
   '/lovable/email/auth/webhook': typeof LovableEmailAuthWebhookRoute
@@ -186,7 +164,6 @@ export interface FileRoutesByTo {
   '/reset-password': typeof ResetPasswordRoute
   '/signup': typeof SignupRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
-  '/invoices': typeof AuthenticatedInvoicesRouteWithChildren
   '/settings': typeof AuthenticatedSettingsRoute
   '/timesheet': typeof AuthenticatedTimesheetRoute
   '/admin/assignments': typeof AuthenticatedAdminAssignmentsRoute
@@ -195,8 +172,6 @@ export interface FileRoutesByTo {
   '/admin/projects': typeof AuthenticatedAdminProjectsRoute
   '/admin/reports': typeof AuthenticatedAdminReportsRoute
   '/admin/users': typeof AuthenticatedAdminUsersRoute
-  '/invoices/$id': typeof AuthenticatedInvoicesIdRoute
-  '/invoices/new': typeof AuthenticatedInvoicesNewRoute
   '/admin': typeof AuthenticatedAdminIndexRoute
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
   '/lovable/email/auth/webhook': typeof LovableEmailAuthWebhookRoute
@@ -212,7 +187,6 @@ export interface FileRoutesById {
   '/signup': typeof SignupRoute
   '/_authenticated/admin': typeof AuthenticatedAdminRouteWithChildren
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
-  '/_authenticated/invoices': typeof AuthenticatedInvoicesRouteWithChildren
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
   '/_authenticated/timesheet': typeof AuthenticatedTimesheetRoute
   '/_authenticated/admin/assignments': typeof AuthenticatedAdminAssignmentsRoute
@@ -221,8 +195,6 @@ export interface FileRoutesById {
   '/_authenticated/admin/projects': typeof AuthenticatedAdminProjectsRoute
   '/_authenticated/admin/reports': typeof AuthenticatedAdminReportsRoute
   '/_authenticated/admin/users': typeof AuthenticatedAdminUsersRoute
-  '/_authenticated/invoices/$id': typeof AuthenticatedInvoicesIdRoute
-  '/_authenticated/invoices/new': typeof AuthenticatedInvoicesNewRoute
   '/_authenticated/admin/': typeof AuthenticatedAdminIndexRoute
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
   '/lovable/email/auth/webhook': typeof LovableEmailAuthWebhookRoute
@@ -238,7 +210,6 @@ export interface FileRouteTypes {
     | '/signup'
     | '/admin'
     | '/dashboard'
-    | '/invoices'
     | '/settings'
     | '/timesheet'
     | '/admin/assignments'
@@ -247,8 +218,6 @@ export interface FileRouteTypes {
     | '/admin/projects'
     | '/admin/reports'
     | '/admin/users'
-    | '/invoices/$id'
-    | '/invoices/new'
     | '/admin/'
     | '/lovable/email/auth/preview'
     | '/lovable/email/auth/webhook'
@@ -261,7 +230,6 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/signup'
     | '/dashboard'
-    | '/invoices'
     | '/settings'
     | '/timesheet'
     | '/admin/assignments'
@@ -270,8 +238,6 @@ export interface FileRouteTypes {
     | '/admin/projects'
     | '/admin/reports'
     | '/admin/users'
-    | '/invoices/$id'
-    | '/invoices/new'
     | '/admin'
     | '/lovable/email/auth/preview'
     | '/lovable/email/auth/webhook'
@@ -286,7 +252,6 @@ export interface FileRouteTypes {
     | '/signup'
     | '/_authenticated/admin'
     | '/_authenticated/dashboard'
-    | '/_authenticated/invoices'
     | '/_authenticated/settings'
     | '/_authenticated/timesheet'
     | '/_authenticated/admin/assignments'
@@ -295,8 +260,6 @@ export interface FileRouteTypes {
     | '/_authenticated/admin/projects'
     | '/_authenticated/admin/reports'
     | '/_authenticated/admin/users'
-    | '/_authenticated/invoices/$id'
-    | '/_authenticated/invoices/new'
     | '/_authenticated/admin/'
     | '/lovable/email/auth/preview'
     | '/lovable/email/auth/webhook'
@@ -373,13 +336,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedSettingsRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
-    '/_authenticated/invoices': {
-      id: '/_authenticated/invoices'
-      path: '/invoices'
-      fullPath: '/invoices'
-      preLoaderRoute: typeof AuthenticatedInvoicesRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
     '/_authenticated/dashboard': {
       id: '/_authenticated/dashboard'
       path: '/dashboard'
@@ -400,20 +356,6 @@ declare module '@tanstack/react-router' {
       fullPath: '/admin/'
       preLoaderRoute: typeof AuthenticatedAdminIndexRouteImport
       parentRoute: typeof AuthenticatedAdminRoute
-    }
-    '/_authenticated/invoices/new': {
-      id: '/_authenticated/invoices/new'
-      path: '/new'
-      fullPath: '/invoices/new'
-      preLoaderRoute: typeof AuthenticatedInvoicesNewRouteImport
-      parentRoute: typeof AuthenticatedInvoicesRoute
-    }
-    '/_authenticated/invoices/$id': {
-      id: '/_authenticated/invoices/$id'
-      path: '/$id'
-      fullPath: '/invoices/$id'
-      preLoaderRoute: typeof AuthenticatedInvoicesIdRouteImport
-      parentRoute: typeof AuthenticatedInvoicesRoute
     }
     '/_authenticated/admin/users': {
       id: '/_authenticated/admin/users'
@@ -504,25 +446,9 @@ const AuthenticatedAdminRouteChildren: AuthenticatedAdminRouteChildren = {
 const AuthenticatedAdminRouteWithChildren =
   AuthenticatedAdminRoute._addFileChildren(AuthenticatedAdminRouteChildren)
 
-interface AuthenticatedInvoicesRouteChildren {
-  AuthenticatedInvoicesIdRoute: typeof AuthenticatedInvoicesIdRoute
-  AuthenticatedInvoicesNewRoute: typeof AuthenticatedInvoicesNewRoute
-}
-
-const AuthenticatedInvoicesRouteChildren: AuthenticatedInvoicesRouteChildren = {
-  AuthenticatedInvoicesIdRoute: AuthenticatedInvoicesIdRoute,
-  AuthenticatedInvoicesNewRoute: AuthenticatedInvoicesNewRoute,
-}
-
-const AuthenticatedInvoicesRouteWithChildren =
-  AuthenticatedInvoicesRoute._addFileChildren(
-    AuthenticatedInvoicesRouteChildren,
-  )
-
 interface AuthenticatedRouteChildren {
   AuthenticatedAdminRoute: typeof AuthenticatedAdminRouteWithChildren
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
-  AuthenticatedInvoicesRoute: typeof AuthenticatedInvoicesRouteWithChildren
   AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
   AuthenticatedTimesheetRoute: typeof AuthenticatedTimesheetRoute
 }
@@ -530,7 +456,6 @@ interface AuthenticatedRouteChildren {
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedAdminRoute: AuthenticatedAdminRouteWithChildren,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
-  AuthenticatedInvoicesRoute: AuthenticatedInvoicesRouteWithChildren,
   AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
   AuthenticatedTimesheetRoute: AuthenticatedTimesheetRoute,
 }
