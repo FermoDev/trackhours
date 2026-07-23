@@ -52,7 +52,7 @@ export const generateInvoicePdf = createServerFn({ method: "POST" })
 
     // Title
     page.drawText("INVOICE", { x: margin, y, size: 24, font: bold });
-    y -= 30;
+    y -= 40;
 
     // Invoice No / Due date header table (2 cols)
     const col = contentWidth / 2;
@@ -65,7 +65,7 @@ export const generateInvoicePdf = createServerFn({ method: "POST" })
     drawRect(margin + col, y, col, 22);
     drawText(invoice.invoice_number, margin + 8, y - 15);
     drawText(invoice.due_date || "—", margin + col + 8, y - 15);
-    y -= 32;
+    y -= 45;
 
     // From / To (wrap each logical line so long addresses don't spill into the next column)
     const rawFrom = [
@@ -108,12 +108,12 @@ export const generateInvoicePdf = createServerFn({ method: "POST" })
         ty -= 13;
       });
     });
-    y -= boxH + 16;
+    y -= boxH + 50;
 
     // Period line (optional context)
     if (invoice.period_start && invoice.period_end) {
       drawText(`Period: ${invoice.period_start} to ${invoice.period_end}`, margin, y, { color: grey, size: 10 });
-      y -= 18;
+      y -= 30;
     }
 
     // Description / Amount table
