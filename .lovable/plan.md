@@ -1,15 +1,18 @@
-The current invoice renders all content near the top of the page (title, From/To, description table, payment details all bunched upward). The user wants the description table pushed down and the overall layout to look like a proper invoice.
+# Add July 2026 hours (Orthodent)
 
-## Changes
-1. Increase the vertical gap between the From/To block and the Period / Description table.
-2. Keep the previously increased spacing between the Total row and the Payment Details block.
-3. Verify the PDF still fits within US Letter margins and no elements overlap.
+## Alizar Lalani
+Stand-up meetings — project "Meetings / Consultancy", 30 min on each Monday of July 2026:
+- Jul 6, Jul 13, Jul 20, Jul 27 — 0.5h each = 2h total
+- Description: "Daily stand up meetings"
 
-## Scope
-- Only edit `src/lib/invoices.functions.ts` (the PDF generation function).
-- No database or UI changes.
-- No new dependencies.
+Remote MCP connector consultancy — project "Claude Remote MCP":
+- Jul 30, 2026 — 1h
+- Description: "Remote MCP connector consultancy"
 
-## QA
-- Generate an invoice PDF in the preview at `/admin/invoices`.
-- Convert to images and inspect to confirm the description table is lower and the layout is balanced.
+## Sami Sohail (sami@fermo.io)
+Project Management — 2h total across July 2026, split as 4 weekly entries of 30 min (Jul 3, 10, 17, 24, Fridays... using Jul 3 / 10 / 17 / 24):
+- Description: "Follow up emails and meetings"
+
+## Technical notes
+- Client: Orthodent. All entries: manual mode, billable, status approved, no invoice link.
+- Entries inserted directly into the time entries table with duration in minutes; existing entries are untouched.
