@@ -10,9 +10,10 @@ Remote MCP connector consultancy — project "Claude Remote MCP":
 - Description: "Remote MCP connector consultancy"
 
 ## Sami Sohail (sami@fermo.io)
-Project Management — 2h total across July 2026, split as 4 weekly entries of 30 min (Jul 3, 10, 17, 24, Fridays... using Jul 3 / 10 / 17 / 24):
+Project "Project Management" — 2h total across July 2026, as 4 weekly 30-minute entries:
+- Jul 3, Jul 10, Jul 17, Jul 24 (Fridays) — 0.5h each
 - Description: "Follow up emails and meetings"
 
 ## Technical notes
-- Client: Orthodent. All entries: manual mode, billable, status approved, no invoice link.
-- Entries inserted directly into the time entries table with duration in minutes; existing entries are untouched.
+- Client: Orthodent. All entries: manual mode, billable, status approved, not linked to any invoice.
+- Rows inserted directly into the time entries table with duration stored in minutes; existing entries untouched.
