@@ -263,7 +263,7 @@ function FreelancerDashboard() {
         {!activeEntry && (
           <Popover open={showFullStart} onOpenChange={(o) => { setShowFullStart(o); if (o) setShowManual(false); }}>
             <PopoverTrigger asChild>
-              <Button size="lg" className="rounded-xl">
+              <Button size="lg" variant="outline" className="rounded-xl">
                 <Play className="h-4 w-4 mr-2" /> Start timer
               </Button>
             </PopoverTrigger>
