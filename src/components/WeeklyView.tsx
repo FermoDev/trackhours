@@ -102,12 +102,15 @@ export function WeeklyView() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-end gap-2">
-        <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setWeekStart(subWeeks(weekStart, 1))}><ChevronLeft className="h-4 w-4" /></Button>
-        <span className="text-sm font-medium min-w-[180px] text-center">
-          {format(weekStart, "MMM d")} — {format(addDays(weekStart, 6), "MMM d, yyyy")}
-        </span>
-        <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setWeekStart(addWeeks(weekStart, 1))}><ChevronRight className="h-4 w-4" /></Button>
+      <div className="flex items-center justify-between gap-2 flex-wrap">
+        <p className="text-xs text-muted-foreground">Tip: click any day cell to add time</p>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setWeekStart(subWeeks(weekStart, 1))}><ChevronLeft className="h-4 w-4" /></Button>
+          <span className="text-sm font-medium min-w-[180px] text-center">
+            {format(weekStart, "MMM d")} — {format(addDays(weekStart, 6), "MMM d, yyyy")}
+          </span>
+          <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setWeekStart(addWeeks(weekStart, 1))}><ChevronRight className="h-4 w-4" /></Button>
+        </div>
       </div>
 
       <Card>
