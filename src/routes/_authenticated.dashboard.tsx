@@ -260,6 +260,82 @@ function FreelancerDashboard() {
 
       {/* Primary actions — always visible, open as dropdowns */}
       <div className="flex flex-wrap items-center gap-2">
+        <Popover open={showManual} onOpenChange={(o) => { setShowManual(o); if (o) setShowFullStart(false); }}>
+          <PopoverTrigger asChild>
+            <Button size="lg" className="rounded-xl">
+              <Plus className="h-4 w-4 mr-2" /> Log time manually
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent align="start" className="w-96 space-y-3">
+            <p className="text-sm font-medium">Log time manually</p>
+            <div className="space-y-2">
+              <div className="flex gap-1.5">
+                <Select value={selectedClient} onValueChange={(v) => { setSelectedClient(v); setSelectedProject(""); }}>
+                  <SelectTrigger><SelectValue placeholder="Select client" /></SelectTrigger>
+                  <SelectContent>
+                    {clients.length === 0 && <p className="text-xs text-muted-foreground px-3 py-2">No clients yet</p>}
+                    {clients.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+                <Button variant="outline" size="icon" className="shrink-0" onClick={() => setAddClientOpen(true)} title="Add client"><Plus className="h-3.5 w-3.5" /></Button>
+              </div>
+              <div className="flex gap-1.5">
+                <Select value={selectedProject} onValueChange={setSelectedProject}>
+                  <SelectTrigger><SelectValue placeholder="Select project" /></SelectTrigger>
+                  <SelectContent>
+                    {filteredProjects.length === 0 && <p className="text-xs text-muted-foreground px-3 py-2">{selectedClient ? "No projects for this client" : "Select a client first"}</p>}
+                    {filteredProjects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+                <Button variant="outline" size="icon" className="shrink-0" onClick={() => { setAddProjectClientId(selectedClient); setAddProjectOpen(true); }} disabled={!selectedClient} title="Add project"><Plus className="h-3.5 w-3.5" /></Button>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className={cn("justify-start text-left font-normal", !manualDate && "text-muted-foreground")}>
+                    <CalendarIcon className="h-4 w-4 mr-2" />
+                    {format(manualDate, "PP")}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar mode="single" selected={manualDate} onSelect={(d) => d && setManualDate(d)} disabled={(date) => date > new Date()} initialFocus className={cn("p-3 pointer-events-auto")} />
+                </PopoverContent>
+              </Popover>
+              <div className="flex gap-2">
+                <Input
+                  type="number"
+                  step={manualUnit === "h" ? "0.25" : "1"}
+                  min="0"
+                  placeholder={manualUnit === "h" ? "Hours" : "Minutes"}
+                  value={manualDuration}
+                  onChange={(e) => setManualDuration(e.target.value)}
+                  className="flex-1"
+                />
+                <Select value={manualUnit} onValueChange={(v) => setManualUnit(v as "h" | "m")}>
+                  <SelectTrigger className="w-24"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="h">Hours</SelectItem>
+                    <SelectItem value="m">Minutes</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Description <span className="text-destructive">*</span></Label>
+              <Textarea
+                placeholder="What did you work on?"
+                value={manualDesc}
+                onChange={(e) => setManualDesc(e.target.value)}
+                rows={2}
+              />
+            </div>
+            <Button onClick={handleManualEntry} disabled={!selectedClient || !selectedProject || !manualDuration || !manualDesc.trim() || submittingManual} className="rounded-xl w-full">
+              {submittingManual && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              {submittingManual ? "Adding…" : "Add Entry"}
+            </Button>
+          </PopoverContent>
+        </Popover>
         {!activeEntry && (
           <Popover open={showFullStart} onOpenChange={(o) => { setShowFullStart(o); if (o) setShowManual(false); }}>
             <PopoverTrigger asChild>
