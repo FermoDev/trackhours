@@ -59,26 +59,6 @@ function FreelancerDashboard() {
   const deleteProjectFn = useServerFn(deleteProject);
   const deleteClientFn = useServerFn(deleteClient);
   const [deleting, setDeleting] = useState<string | null>(null);
-  const startFormRef = useRef<HTMLDivElement>(null);
-  const manualFormRef = useRef<HTMLDivElement>(null);
-  const timerDescRef = useRef<HTMLTextAreaElement>(null);
-  const manualDescRef = useRef<HTMLTextAreaElement>(null);
-
-  useEffect(() => {
-    if (!showFullStart) return;
-    requestAnimationFrame(() => {
-      startFormRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-      if (selectedClient && selectedProject) timerDescRef.current?.focus();
-    });
-  }, [showFullStart, selectedClient, selectedProject]);
-
-  useEffect(() => {
-    if (!showManual) return;
-    requestAnimationFrame(() => {
-      manualFormRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-      if (selectedClient && selectedProject) manualDescRef.current?.focus();
-    });
-  }, [showManual, selectedClient, selectedProject]);
 
   const myProjects = useMemo(
     () => projects.filter(p => p.created_by === user?.id),
