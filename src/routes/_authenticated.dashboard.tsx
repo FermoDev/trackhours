@@ -3,7 +3,6 @@ import { useAuth } from "@/lib/auth";
 import { useTimer } from "@/hooks/use-timer";
 import { supabase } from "@/integrations/supabase/client";
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { useRef } from "react";
 import { format } from "date-fns";
 import { formatDuration, formatTimerDisplay } from "@/lib/format";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
