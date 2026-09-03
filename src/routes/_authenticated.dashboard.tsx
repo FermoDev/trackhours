@@ -447,52 +447,6 @@ function FreelancerDashboard() {
             </Card>
           )}
 
-          {/* Full start form — rendered right below the buttons */}
-          {showFullStart && (
-            <Card ref={startFormRef}>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base">Start a new timer</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div className="flex gap-1.5">
-                    <Select value={selectedClient} onValueChange={(v) => { setSelectedClient(v); setSelectedProject(""); }}>
-                      <SelectTrigger><SelectValue placeholder="Select client" /></SelectTrigger>
-                      <SelectContent>
-                        {clients.length === 0 && <p className="text-xs text-muted-foreground px-3 py-2">No clients yet</p>}
-                        {clients.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                    <Button variant="outline" size="icon" className="shrink-0" onClick={() => setAddClientOpen(true)} title="Add client"><Plus className="h-3.5 w-3.5" /></Button>
-                  </div>
-                  <div className="flex gap-1.5">
-                    <Select value={selectedProject} onValueChange={setSelectedProject}>
-                      <SelectTrigger><SelectValue placeholder="Select project" /></SelectTrigger>
-                      <SelectContent>
-                        {filteredProjects.length === 0 && <p className="text-xs text-muted-foreground px-3 py-2">{selectedClient ? "No projects for this client" : "Select a client first"}</p>}
-                        {filteredProjects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                    <Button variant="outline" size="icon" className="shrink-0" onClick={() => { setAddProjectClientId(selectedClient); setAddProjectOpen(true); }} disabled={!selectedClient} title="Add project"><Plus className="h-3.5 w-3.5" /></Button>
-                  </div>
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-xs">What are you working on? <span className="text-destructive">*</span></Label>
-                  <Textarea
-                    ref={timerDescRef}
-                    placeholder="Describe the task you're about to work on…"
-                    value={timerDesc}
-                    onChange={(e) => setTimerDesc(e.target.value)}
-                    rows={2}
-                  />
-                </div>
-                <Button onClick={handleStart} disabled={!selectedClient || !selectedProject || !timerDesc.trim() || timerLoading} className="rounded-xl">
-                  {timerLoading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Play className="h-4 w-4 mr-2" />}
-                  Start Timer
-                </Button>
-              </CardContent>
-            </Card>
-          )}
 
         </div>
       )}
