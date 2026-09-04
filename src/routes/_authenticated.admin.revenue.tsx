@@ -180,7 +180,7 @@ function AdminRevenuePage() {
                   <XAxis dataKey="name" tick={{ fontSize: 11 }} interval={0} angle={-15} textAnchor="end" height={50} />
                   <YAxis tick={{ fontSize: 11 }} />
                   <Tooltip formatter={(v: any) => money(Number(v))} />
-                  <Bar dataKey="revenue" fill="hsl(var(--primary))" radius={[6, 6, 0, 0]} />
+                  <Bar dataKey="revenue" fill="var(--primary)" radius={[6, 6, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </div>
