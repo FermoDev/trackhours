@@ -101,8 +101,8 @@ function TrendChart({ data }: { data: { month: string; hours: number; revenue: n
             formatter={(value: any, name: any) => (name === "revenue" ? money(Number(value)) : `${Number(value).toFixed(1)}h`)}
             contentStyle={{ borderRadius: 12, fontSize: 12 }}
           />
-          <Bar yAxisId="left" dataKey="hours" name="hours" fill="hsl(var(--primary))" radius={[6, 6, 0, 0]} opacity={0.75} />
-          <Line yAxisId="right" dataKey="revenue" name="revenue" stroke="hsl(var(--foreground))" strokeWidth={2} dot={false} />
+          <Bar yAxisId="left" dataKey="hours" name="hours" fill="var(--primary)" radius={[6, 6, 0, 0]} opacity={0.75} />
+          <Line yAxisId="right" dataKey="revenue" name="revenue" stroke="var(--foreground)" strokeWidth={2} dot={false} />
         </ComposedChart>
       </ResponsiveContainer>
     </div>
