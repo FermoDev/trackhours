@@ -2,7 +2,7 @@ import { Link, useLocation } from "@tanstack/react-router";
 import { useAuth } from "@/lib/auth";
 import {
   Clock, LayoutDashboard, FileText, Users, Building2,
-  FolderKanban, LinkIcon, BarChart3, LogOut, ChevronLeft, ChevronRight, Menu, X, Settings, Receipt
+  FolderKanban, LinkIcon, BarChart3, LogOut, ChevronLeft, ChevronRight, Menu, X, Settings, Receipt, DollarSign
 } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
