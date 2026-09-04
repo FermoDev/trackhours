@@ -2,7 +2,7 @@ import { Link, useLocation } from "@tanstack/react-router";
 import { useAuth } from "@/lib/auth";
 import {
   Clock, LayoutDashboard, FileText, Users, Building2,
-  FolderKanban, LinkIcon, BarChart3, LogOut, ChevronLeft, ChevronRight, Menu, X, Settings, Receipt
+  FolderKanban, LinkIcon, BarChart3, LogOut, ChevronLeft, ChevronRight, Menu, X, Settings, Receipt, DollarSign
 } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -24,6 +24,7 @@ const adminNav = [
   { to: "/admin/assignments", label: "Assignments", icon: LinkIcon },
   { to: "/admin/entries", label: "All Entries", icon: Clock },
   { to: "/admin/invoices", label: "Invoices", icon: Receipt },
+  { to: "/admin/revenue", label: "Revenue", icon: DollarSign },
   { to: "/admin/reports", label: "Reports", icon: BarChart3 },
 ];
 
