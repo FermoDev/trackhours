@@ -24,6 +24,7 @@ const adminNav = [
   { to: "/admin/assignments", label: "Assignments", icon: LinkIcon },
   { to: "/admin/entries", label: "All Entries", icon: Clock },
   { to: "/admin/invoices", label: "Invoices", icon: Receipt },
+  { to: "/admin/revenue", label: "Revenue", icon: DollarSign },
   { to: "/admin/reports", label: "Reports", icon: BarChart3 },
 ];
 
