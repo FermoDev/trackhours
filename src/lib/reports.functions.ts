@@ -187,12 +187,16 @@ export const getReportSummary = createServerFn({ method: "POST" })
 
         const monthsArr: MonthPoint[] = Array.from(a.months.entries())
           .sort((x, y) => x[0].localeCompare(y[0]))
-          .map(([month, minutes]) => ({ month, minutes, earned: round2((minutes / 60) * rate) }));
+          .map(([month, v]) => ({
+            month,
+            minutes: v.minutes,
+            earned: round2((v.billableMinutes / 60) * rate),
+          }));
 
-        for (const [month, minutes] of a.months.entries()) {
+        for (const [month, v] of a.months.entries()) {
           const mt = monthTotals.get(month) ?? { minutes: 0, earned: 0 };
-          mt.minutes += minutes;
-          mt.earned += (minutes / 60) * rate;
+          mt.minutes += v.minutes;
+          mt.earned += (v.billableMinutes / 60) * rate;
           monthTotals.set(month, mt);
         }
 
