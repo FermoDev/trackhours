@@ -216,19 +216,19 @@ export const getReportSummary = createServerFn({ method: "POST" })
           prevMinutes: p.minutes,
           prevEarned: round2((p.billableMinutes / 60) * rate),
           projects: Array.from(a.projects.entries())
-            .map(([id, minutes]) => ({
+            .map(([id, v]) => ({
               id,
               name: projectName.get(id) ?? "Unknown",
-              minutes,
-              earned: round2((minutes / 60) * rate),
+              minutes: v.minutes,
+              earned: round2((v.billableMinutes / 60) * rate),
             }))
             .sort((x, y) => y.minutes - x.minutes),
           people: Array.from(a.people.entries())
-            .map(([id, minutes]) => ({
+            .map(([id, v]) => ({
               id,
               name: personName.get(id) ?? "Unknown",
-              minutes,
-              earned: round2((minutes / 60) * rate),
+              minutes: v.minutes,
+              earned: round2((v.billableMinutes / 60) * rate),
             }))
             .sort((x, y) => y.minutes - x.minutes),
           months: monthsArr,
