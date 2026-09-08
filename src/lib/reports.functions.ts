@@ -145,9 +145,15 @@ export const getReportSummary = createServerFn({ method: "POST" })
       a.entryCount += 1;
       if (e.billable) a.billableMinutes += mins;
       if (e.invoice_id) a.invoicedMinutes += mins;
-      if (e.project_id) a.projects.set(e.project_id, (a.projects.get(e.project_id) ?? 0) + mins);
-      a.people.set(e.user_id, (a.people.get(e.user_id) ?? 0) + mins);
-      a.months.set(month, (a.months.get(month) ?? 0) + mins);
+      const bump = (m: Map<string, { minutes: number; billableMinutes: number }>, key: string) => {
+        const cur = m.get(key) ?? { minutes: 0, billableMinutes: 0 };
+        cur.minutes += mins;
+        if (e.billable) cur.billableMinutes += mins;
+        m.set(key, cur);
+      };
+      if (e.project_id) bump(a.projects, e.project_id);
+      bump(a.people, e.user_id);
+      bump(a.months, month);
       a.entries.push({
         id: e.id,
         date: e.entry_date,
