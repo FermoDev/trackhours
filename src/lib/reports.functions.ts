@@ -117,9 +117,9 @@ export const getReportSummary = createServerFn({ method: "POST" })
       billableMinutes: number;
       invoicedMinutes: number;
       entryCount: number;
-      projects: Map<string, number>;
-      people: Map<string, number>;
-      months: Map<string, number>;
+      projects: Map<string, { minutes: number; billableMinutes: number }>;
+      people: Map<string, { minutes: number; billableMinutes: number }>;
+      months: Map<string, { minutes: number; billableMinutes: number }>;
       entries: ReportEntry[];
     };
     const acc = new Map<string, Acc>();
