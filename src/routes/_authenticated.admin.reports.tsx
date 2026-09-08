@@ -35,7 +35,8 @@ export const Route = createFileRoute("/_authenticated/admin/reports")({
   }),
 });
 
-const iso = (d: Date) => d.toISOString().slice(0, 10);
+const iso = (d: Date) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 
 function presetRange(preset: string): { from: string; to: string } | null {
   const now = new Date();

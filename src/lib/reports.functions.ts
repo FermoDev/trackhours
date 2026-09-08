@@ -117,9 +117,9 @@ export const getReportSummary = createServerFn({ method: "POST" })
       billableMinutes: number;
       invoicedMinutes: number;
       entryCount: number;
-      projects: Map<string, number>;
-      people: Map<string, number>;
-      months: Map<string, number>;
+      projects: Map<string, { minutes: number; billableMinutes: number }>;
+      people: Map<string, { minutes: number; billableMinutes: number }>;
+      months: Map<string, { minutes: number; billableMinutes: number }>;
       entries: ReportEntry[];
     };
     const acc = new Map<string, Acc>();
@@ -145,9 +145,15 @@ export const getReportSummary = createServerFn({ method: "POST" })
       a.entryCount += 1;
       if (e.billable) a.billableMinutes += mins;
       if (e.invoice_id) a.invoicedMinutes += mins;
-      if (e.project_id) a.projects.set(e.project_id, (a.projects.get(e.project_id) ?? 0) + mins);
-      a.people.set(e.user_id, (a.people.get(e.user_id) ?? 0) + mins);
-      a.months.set(month, (a.months.get(month) ?? 0) + mins);
+      const bump = (m: Map<string, { minutes: number; billableMinutes: number }>, key: string) => {
+        const cur = m.get(key) ?? { minutes: 0, billableMinutes: 0 };
+        cur.minutes += mins;
+        if (e.billable) cur.billableMinutes += mins;
+        m.set(key, cur);
+      };
+      if (e.project_id) bump(a.projects, e.project_id);
+      bump(a.people, e.user_id);
+      bump(a.months, month);
       a.entries.push({
         id: e.id,
         date: e.entry_date,
@@ -181,12 +187,16 @@ export const getReportSummary = createServerFn({ method: "POST" })
 
         const monthsArr: MonthPoint[] = Array.from(a.months.entries())
           .sort((x, y) => x[0].localeCompare(y[0]))
-          .map(([month, minutes]) => ({ month, minutes, earned: round2((minutes / 60) * rate) }));
+          .map(([month, v]) => ({
+            month,
+            minutes: v.minutes,
+            earned: round2((v.billableMinutes / 60) * rate),
+          }));
 
-        for (const [month, minutes] of a.months.entries()) {
+        for (const [month, v] of a.months.entries()) {
           const mt = monthTotals.get(month) ?? { minutes: 0, earned: 0 };
-          mt.minutes += minutes;
-          mt.earned += (minutes / 60) * rate;
+          mt.minutes += v.minutes;
+          mt.earned += (v.billableMinutes / 60) * rate;
           monthTotals.set(month, mt);
         }
 
@@ -206,19 +216,19 @@ export const getReportSummary = createServerFn({ method: "POST" })
           prevMinutes: p.minutes,
           prevEarned: round2((p.billableMinutes / 60) * rate),
           projects: Array.from(a.projects.entries())
-            .map(([id, minutes]) => ({
+            .map(([id, v]) => ({
               id,
               name: projectName.get(id) ?? "Unknown",
-              minutes,
-              earned: round2((minutes / 60) * rate),
+              minutes: v.minutes,
+              earned: round2((v.billableMinutes / 60) * rate),
             }))
             .sort((x, y) => y.minutes - x.minutes),
           people: Array.from(a.people.entries())
-            .map(([id, minutes]) => ({
+            .map(([id, v]) => ({
               id,
               name: personName.get(id) ?? "Unknown",
-              minutes,
-              earned: round2((minutes / 60) * rate),
+              minutes: v.minutes,
+              earned: round2((v.billableMinutes / 60) * rate),
             }))
             .sort((x, y) => y.minutes - x.minutes),
           months: monthsArr,
