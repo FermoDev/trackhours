@@ -245,6 +245,55 @@ function FreelancerDashboard() {
     }
   };
 
+  const openManualPrefilled = useCallback(() => {
+    if (lastEntry) {
+      setSelectedClient(lastEntry.client_id);
+      setSelectedProject(lastEntry.project_id);
+    }
+    setManualDate(new Date());
+    setShowFullStart(false);
+    setShowManual(true);
+  }, [lastEntry]);
+
+  // Daily reminder: browser notification at the user's chosen time when nothing is logged today
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+    let interval: ReturnType<typeof setInterval> | undefined;
+
+    supabase
+      .from("reminder_settings")
+      .select("daily_enabled, daily_time")
+      .eq("user_id", user.id)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (cancelled || !data?.daily_enabled) return;
+        const target = timeToMinutes(data.daily_time || "17:00");
+        const check = () => {
+          if (hasFiredToday() || todayMinutes > 0) return;
+          if (minutesSinceMidnight() < target) return;
+          markFiredToday();
+          const shown = showNotification(
+            "You haven't logged time today",
+            "Open TrackHours and add your hours.",
+            openManualPrefilled,
+          );
+          if (!shown) {
+            toast("You haven't logged time today", {
+              action: { label: "Log time", onClick: openManualPrefilled },
+            });
+          }
+        };
+        check();
+        interval = setInterval(check, 60_000);
+      });
+
+    return () => {
+      cancelled = true;
+      if (interval) clearInterval(interval);
+    };
+  }, [user, todayMinutes, openManualPrefilled]);
+
   const todayPct = Math.min(100, (todayMinutes / TARGET_DAY) * 100);
   const weekPct = Math.min(100, (weekMinutes / TARGET_WEEK) * 100);
 
