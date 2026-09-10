@@ -1,48 +1,59 @@
 # Smart Time Reminders
 
 ## Goal
-Make logging time less tedious by nudging users at the right moment and letting them act in one click, instead of forcing them to remember the app exists.
+Make logging time less tedious by nudging people at the right moment and letting them act in one click. Focus on manual entries — that's what everyone actually uses.
 
 ## What we'll build
 
-1. **Daily in-app nudge**
-   - Show a dismissible banner on the Dashboard when the signed-in user has logged zero time today.
-   - Banner offers two one-click actions:
-     - "Start timer on last project" — resumes the most recent client/project combo.
-     - "Log 30 min manually" — opens the manual-entry popover pre-filled with the last project and today's date.
+### 1. Daily in-app nudge (dashboard)
+- If the signed-in user has logged no time today, show a dismissible banner at the top of the dashboard.
+- One action: "Log time now" — opens the manual-entry dropdown, pre-filled with the user's most recent client/project and today's date.
+- Dismissing hides it for the rest of the day.
 
-2. **Browser notification reminder**
-   - Add a Reminders section in Settings.
-   - User can enable/disable a daily browser notification and pick a time (default 17:00 / 5 PM).
-   - When the chosen time arrives and the app is open, request Notification permission if needed and show a browser notification: "You haven't logged time today — start timer or log time?"
-   - Clicking the notification focuses the tab and opens the relevant action.
-   - If permission is denied, fall back to an in-app toast reminder.
+### 2. Daily browser notification
+- New "Reminders" section in Settings: turn the daily reminder on/off and pick a time (default 5:00 PM).
+- When the chosen time passes and the app is open in a tab, show a browser notification: "You haven't logged time today." Clicking it focuses the tab and opens the manual-entry form.
+- Asks for notification permission when the user turns it on; if permission is blocked, falls back to an in-app toast.
+- Never fires on a day the user already logged time.
 
-3. **Smart suggestions row**
-   - On the Dashboard, below the primary buttons, show "Quick resume" chips for the user's last 3 unique client/project combos from the past 14 days.
-   - Clicking a chip prefills and opens the Start timer popover.
+### 3. Month-end email reminders
+- Starting 5 days before the end of each month, email users who have unlogged gaps so they can catch up before month close.
+- One email per user per day, sent from your verified sender domain, only on the last 5 days of the month.
+- Email content: how many hours they've logged this month, which days in the month have zero entries, and a button that opens the app straight to the manual-entry form.
+- Skips users who logged time on every weekday that month, and skips inactive accounts.
+- Users can turn month-end emails off in Settings (same Reminders section).
 
-## Out of scope for this plan
-- Email reminders (can be added later; browser notifications cover the open-app case).
-- Admin-controlled reminder policies (users own their own reminder settings).
+## Not doing
+- Timer-based suggestions or quick-resume chips (nobody uses the timer).
+- Client-facing reminders — internal team only.
 
 ## Technical approach
 
-- Add `reminder_enabled` and `reminder_time` columns to `public.profiles` (or a new `reminder_settings` table if we want to keep profile lean). RLS: users read/update only their own row.
-- Use the existing browser Notification API; no service worker needed for page-visible notifications.
-- Schedule the check with a lightweight `setInterval`/`setTimeout` based on the user's chosen local time, refreshed when the setting changes.
-- Quick-resume chips reuse the existing recent-entries logic already present on the Dashboard.
-- The zero-time-today banner queries the same `time_entries` data the Dashboard already fetches.
+**Reminder settings**
+- New `reminder_settings` table keyed by `user_id`: `daily_enabled`, `daily_time`, `month_end_email_enabled`, timestamps. RLS so a user reads/writes only their own row; row auto-created on first save with sensible defaults.
 
-## Files to touch
-- `src/routes/_authenticated.settings.tsx` — add reminder toggles/time picker.
-- `src/routes/_authenticated.dashboard.tsx` — add nudge banner and quick-resume chips.
-- `src/lib/reminders.ts` — new helper for permission request, notification content, and scheduling.
-- Database migration — add reminder columns to `profiles` with RLS update policy.
+**In-app + browser notifications**
+- New `src/lib/reminders.ts`: permission request, "logged anything today?" check, and a timer that fires at the user's chosen local time while the app is open.
+- Dashboard banner reuses the today-minutes value the dashboard already loads.
+- Dismissal stored per-day in local storage.
+
+**Month-end emails**
+- Email infrastructure and the verified sender domain (`notify.trackhourspro.com`) are already in place; this adds one new template plus a sending path.
+- New React Email template `src/lib/email-templates/month-end-reminder.tsx` registered in the template registry, styled to match the app (green accent, Inter).
+- A scheduled daily job runs once per day; it exits immediately unless the date is within the last 5 days of the month. For each eligible user it computes month-to-date hours and missing weekdays, then queues one email. Runs once daily, so no meaningful ongoing cost.
+- An idempotency key per user per day prevents duplicate sends if the job runs twice.
+
+**Files to touch**
+- `src/routes/_authenticated.settings.tsx` — Reminders section.
+- `src/routes/_authenticated.dashboard.tsx` — nudge banner + prefilled manual entry.
+- `src/lib/reminders.ts` — new.
+- `src/lib/email-templates/month-end-reminder.tsx` + registry — new template.
+- Server route for the daily reminder job + scheduled trigger.
+- Database migration for `reminder_settings`.
 
 ## Acceptance criteria
-- A user with no entries today sees the dashboard banner.
-- Banner actions correctly start a timer or open the manual-entry popover.
-- Enabling reminders in Settings requests browser permission and shows a test notification.
-- At the chosen time, an enabled user receives a browser notification if the app is open and no time was logged that day.
-- Quick-resume chips show recent client/project combos and prefill the timer popover.
+- A user with no entries today sees the dashboard banner, and clicking it opens a prefilled manual-entry form.
+- Turning on the daily reminder in Settings asks for permission and confirms with a test notification.
+- The daily notification fires at the chosen time only when no time was logged that day.
+- On each of the last 5 days of a month, users with gaps get exactly one reminder email showing their month-to-date hours and missing days.
+- Turning month-end emails off in Settings stops those emails.
