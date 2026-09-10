@@ -8,7 +8,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { Link } from "@tanstack/react-router";
-import { Building2, FolderKanban, Loader2, LogOut, User, KeyRound, Shield, Sparkles, Landmark } from "lucide-react";
+import { Building2, FolderKanban, Loader2, LogOut, User, KeyRound, Shield, Sparkles, Landmark, Bell } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import {
+  DEFAULT_REMINDER_SETTINGS,
+  notificationPermission,
+  requestNotificationPermission,
+  showNotification,
+} from "@/lib/reminders";
 
 export const Route = createFileRoute("/_authenticated/settings")({
   component: SettingsPage,
