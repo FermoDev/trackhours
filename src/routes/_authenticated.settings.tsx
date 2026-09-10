@@ -8,7 +8,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { Link } from "@tanstack/react-router";
-import { Building2, FolderKanban, Loader2, LogOut, User, KeyRound, Shield, Sparkles, Landmark } from "lucide-react";
+import { Building2, FolderKanban, Loader2, LogOut, User, KeyRound, Shield, Sparkles, Landmark, Bell } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import {
+  DEFAULT_REMINDER_SETTINGS,
+  notificationPermission,
+  requestNotificationPermission,
+  showNotification,
+} from "@/lib/reminders";
 
 export const Route = createFileRoute("/_authenticated/settings")({
   component: SettingsPage,
@@ -34,6 +41,64 @@ function SettingsPage() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [changingPassword, setChangingPassword] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
+
+  // Reminders
+  const [dailyEnabled, setDailyEnabled] = useState(DEFAULT_REMINDER_SETTINGS.daily_enabled);
+  const [dailyTime, setDailyTime] = useState(DEFAULT_REMINDER_SETTINGS.daily_time);
+  const [monthEndEmail, setMonthEndEmail] = useState(DEFAULT_REMINDER_SETTINGS.month_end_email_enabled);
+  const [savingReminders, setSavingReminders] = useState(false);
+  const [permission, setPermission] = useState<string>("default");
+
+  useEffect(() => {
+    setPermission(notificationPermission());
+    if (!user) return;
+    supabase
+      .from("reminder_settings")
+      .select("daily_enabled, daily_time, month_end_email_enabled")
+      .eq("user_id", user.id)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (!data) return;
+        setDailyEnabled(data.daily_enabled);
+        setDailyTime((data.daily_time || "17:00").slice(0, 5));
+        setMonthEndEmail(data.month_end_email_enabled);
+      });
+  }, [user]);
+
+  const handleToggleDaily = async (next: boolean) => {
+    if (next) {
+      const result = await requestNotificationPermission();
+      setPermission(result);
+      if (result === "unsupported") {
+        toast.error("Your browser doesn't support notifications");
+        return;
+      }
+      if (result !== "granted") {
+        toast.error("Notifications are blocked in your browser settings");
+        return;
+      }
+      showNotification("Reminders are on", "We'll nudge you if you haven't logged time.");
+    }
+    setDailyEnabled(next);
+  };
+
+  const handleSaveReminders = async () => {
+    if (!user) return;
+    setSavingReminders(true);
+    const { error } = await supabase.from("reminder_settings").upsert(
+      {
+        user_id: user.id,
+        daily_enabled: dailyEnabled,
+        daily_time: dailyTime,
+        month_end_email_enabled: monthEndEmail,
+      },
+      { onConflict: "user_id" },
+    );
+    setSavingReminders(false);
+    if (error) toast.error("Failed to save reminders");
+    else toast.success("Reminder settings saved");
+  };
+
 
   useEffect(() => {
     if (profile) {
@@ -157,6 +222,52 @@ function SettingsPage() {
 
       <Card>
         <CardHeader className="pb-3">
+          <CardTitle className="text-base flex items-center gap-2"><Bell className="h-4 w-4 text-muted-foreground" />Reminders</CardTitle>
+          <p className="text-xs text-muted-foreground pt-1">Gentle nudges so you don't forget to log your time</p>
+        </CardHeader>
+        <CardContent className="space-y-5">
+          <div className="flex items-start justify-between gap-4">
+            <div className="space-y-0.5">
+              <Label htmlFor="dailyEnabled">Daily reminder</Label>
+              <p className="text-xs text-muted-foreground">
+                A browser notification if you haven't logged time that day (only while the app is open).
+              </p>
+              {permission === "denied" && (
+                <p className="text-xs text-destructive">
+                  Notifications are blocked in your browser — allow them for this site to use this.
+                </p>
+              )}
+            </div>
+            <Switch id="dailyEnabled" checked={dailyEnabled} onCheckedChange={handleToggleDaily} />
+          </div>
+
+          {dailyEnabled && (
+            <div className="space-y-1.5 max-w-[180px]">
+              <Label htmlFor="dailyTime">Remind me at</Label>
+              <Input id="dailyTime" type="time" value={dailyTime} onChange={(e) => setDailyTime(e.target.value)} />
+            </div>
+          )}
+
+          <div className="flex items-start justify-between gap-4">
+            <div className="space-y-0.5">
+              <Label htmlFor="monthEndEmail">Month-end email reminders</Label>
+              <p className="text-xs text-muted-foreground">
+                An email on each of the last 5 days of the month if you have days with no time logged.
+              </p>
+            </div>
+            <Switch id="monthEndEmail" checked={monthEndEmail} onCheckedChange={setMonthEndEmail} />
+          </div>
+
+          <Button onClick={handleSaveReminders} disabled={savingReminders} className="rounded-xl">
+            {savingReminders && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+            {savingReminders ? "Saving…" : "Save reminders"}
+          </Button>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="pb-3">
+
           <CardTitle className="text-base flex items-center gap-2"><Landmark className="h-4 w-4 text-muted-foreground" />Billing info</CardTitle>
           <p className="text-xs text-muted-foreground pt-1">Used on invoices generated for you</p>
         </CardHeader>

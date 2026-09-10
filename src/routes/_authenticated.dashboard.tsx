@@ -22,6 +22,15 @@ import type { Tables } from "@/integrations/supabase/types";
 import { DeleteEntryButton } from "@/components/DeleteEntryButton";
 import { useServerFn } from "@tanstack/react-start";
 import { findOrCreateClient, findOrCreateProject, deleteProject, deleteClient } from "@/lib/clients.functions";
+import {
+  timeToMinutes,
+  minutesSinceMidnight,
+  hasFiredToday,
+  markFiredToday,
+  showNotification,
+  isNudgeDismissedToday,
+  dismissNudgeToday,
+} from "@/lib/reminders";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   component: FreelancerDashboard,
@@ -245,6 +254,60 @@ function FreelancerDashboard() {
     }
   };
 
+  const [nudgeDismissed, setNudgeDismissed] = useState(true);
+  useEffect(() => {
+    setNudgeDismissed(isNudgeDismissedToday());
+  }, []);
+
+  const openManualPrefilled = useCallback(() => {
+    if (lastEntry) {
+      setSelectedClient(lastEntry.client_id);
+      setSelectedProject(lastEntry.project_id);
+    }
+    setManualDate(new Date());
+    setShowFullStart(false);
+    setShowManual(true);
+  }, [lastEntry]);
+
+  // Daily reminder: browser notification at the user's chosen time when nothing is logged today
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+    let interval: ReturnType<typeof setInterval> | undefined;
+
+    supabase
+      .from("reminder_settings")
+      .select("daily_enabled, daily_time")
+      .eq("user_id", user.id)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (cancelled || !data?.daily_enabled) return;
+        const target = timeToMinutes(data.daily_time || "17:00");
+        const check = () => {
+          if (hasFiredToday() || todayMinutes > 0) return;
+          if (minutesSinceMidnight() < target) return;
+          markFiredToday();
+          const shown = showNotification(
+            "You haven't logged time today",
+            "Open TrackHours and add your hours.",
+            openManualPrefilled,
+          );
+          if (!shown) {
+            toast("You haven't logged time today", {
+              action: { label: "Log time", onClick: openManualPrefilled },
+            });
+          }
+        };
+        check();
+        interval = setInterval(check, 60_000);
+      });
+
+    return () => {
+      cancelled = true;
+      if (interval) clearInterval(interval);
+    };
+  }, [user, todayMinutes, openManualPrefilled]);
+
   const todayPct = Math.min(100, (todayMinutes / TARGET_DAY) * 100);
   const weekPct = Math.min(100, (weekMinutes / TARGET_WEEK) * 100);
 
@@ -256,6 +319,26 @@ function FreelancerDashboard() {
         </h1>
         <p className="text-muted-foreground text-sm mt-1">Here's your time tracking overview</p>
       </div>
+
+      {!nudgeDismissed && todayMinutes === 0 && !activeEntry && (
+        <div className="flex items-center gap-3 rounded-xl border border-primary/25 bg-primary/5 px-4 py-3">
+          <Clock className="h-4 w-4 text-primary shrink-0" />
+          <p className="text-sm flex-1">
+            No time logged today yet{lastEntry?.clients?.name ? ` — last on ${lastEntry.clients.name}` : ""}.
+          </p>
+          <Button size="sm" className="rounded-lg" onClick={openManualPrefilled}>
+            Log time now
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            className="rounded-lg"
+            onClick={() => { dismissNudgeToday(); setNudgeDismissed(true); }}
+          >
+            Dismiss
+          </Button>
+        </div>
+      )}
 
       {/* Primary actions — always visible, open as dropdowns */}
       <div className="flex flex-wrap items-center gap-2">
