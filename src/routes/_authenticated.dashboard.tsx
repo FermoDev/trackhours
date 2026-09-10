@@ -22,6 +22,15 @@ import type { Tables } from "@/integrations/supabase/types";
 import { DeleteEntryButton } from "@/components/DeleteEntryButton";
 import { useServerFn } from "@tanstack/react-start";
 import { findOrCreateClient, findOrCreateProject, deleteProject, deleteClient } from "@/lib/clients.functions";
+import {
+  timeToMinutes,
+  minutesSinceMidnight,
+  hasFiredToday,
+  markFiredToday,
+  showNotification,
+  isNudgeDismissedToday,
+  dismissNudgeToday,
+} from "@/lib/reminders";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   component: FreelancerDashboard,
