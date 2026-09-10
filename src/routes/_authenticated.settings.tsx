@@ -42,6 +42,64 @@ function SettingsPage() {
   const [changingPassword, setChangingPassword] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
 
+  // Reminders
+  const [dailyEnabled, setDailyEnabled] = useState(DEFAULT_REMINDER_SETTINGS.daily_enabled);
+  const [dailyTime, setDailyTime] = useState(DEFAULT_REMINDER_SETTINGS.daily_time);
+  const [monthEndEmail, setMonthEndEmail] = useState(DEFAULT_REMINDER_SETTINGS.month_end_email_enabled);
+  const [savingReminders, setSavingReminders] = useState(false);
+  const [permission, setPermission] = useState<string>("default");
+
+  useEffect(() => {
+    setPermission(notificationPermission());
+    if (!user) return;
+    supabase
+      .from("reminder_settings")
+      .select("daily_enabled, daily_time, month_end_email_enabled")
+      .eq("user_id", user.id)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (!data) return;
+        setDailyEnabled(data.daily_enabled);
+        setDailyTime((data.daily_time || "17:00").slice(0, 5));
+        setMonthEndEmail(data.month_end_email_enabled);
+      });
+  }, [user]);
+
+  const handleToggleDaily = async (next: boolean) => {
+    if (next) {
+      const result = await requestNotificationPermission();
+      setPermission(result);
+      if (result === "unsupported") {
+        toast.error("Your browser doesn't support notifications");
+        return;
+      }
+      if (result !== "granted") {
+        toast.error("Notifications are blocked in your browser settings");
+        return;
+      }
+      showNotification("Reminders are on", "We'll nudge you if you haven't logged time.");
+    }
+    setDailyEnabled(next);
+  };
+
+  const handleSaveReminders = async () => {
+    if (!user) return;
+    setSavingReminders(true);
+    const { error } = await supabase.from("reminder_settings").upsert(
+      {
+        user_id: user.id,
+        daily_enabled: dailyEnabled,
+        daily_time: dailyTime,
+        month_end_email_enabled: monthEndEmail,
+      },
+      { onConflict: "user_id" },
+    );
+    setSavingReminders(false);
+    if (error) toast.error("Failed to save reminders");
+    else toast.success("Reminder settings saved");
+  };
+
+
   useEffect(() => {
     if (profile) {
       setFullName(profile.full_name || "");
