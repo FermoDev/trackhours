@@ -453,6 +453,60 @@ export type Database = {
           },
         ]
       }
+      reminder_email_log: {
+        Row: {
+          created_at: string
+          id: string
+          kind: string
+          sent_for_date: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          kind?: string
+          sent_for_date: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          kind?: string
+          sent_for_date?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      reminder_settings: {
+        Row: {
+          created_at: string
+          daily_enabled: boolean
+          daily_time: string
+          id: string
+          month_end_email_enabled: boolean
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          daily_enabled?: boolean
+          daily_time?: string
+          id?: string
+          month_end_email_enabled?: boolean
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          daily_enabled?: boolean
+          daily_time?: string
+          id?: string
+          month_end_email_enabled?: boolean
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       suppressed_emails: {
         Row: {
           created_at: string
