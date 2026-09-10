@@ -254,6 +254,11 @@ function FreelancerDashboard() {
     }
   };
 
+  const [nudgeDismissed, setNudgeDismissed] = useState(true);
+  useEffect(() => {
+    setNudgeDismissed(isNudgeDismissedToday());
+  }, []);
+
   const openManualPrefilled = useCallback(() => {
     if (lastEntry) {
       setSelectedClient(lastEntry.client_id);
