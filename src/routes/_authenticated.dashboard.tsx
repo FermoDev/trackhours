@@ -320,6 +320,26 @@ function FreelancerDashboard() {
         <p className="text-muted-foreground text-sm mt-1">Here's your time tracking overview</p>
       </div>
 
+      {!nudgeDismissed && todayMinutes === 0 && !isRunning && (
+        <div className="flex items-center gap-3 rounded-xl border border-primary/25 bg-primary/5 px-4 py-3">
+          <Clock className="h-4 w-4 text-primary shrink-0" />
+          <p className="text-sm flex-1">
+            No time logged today yet{lastEntry ? ` — last on ${lastEntry.client?.name ?? "your project"}` : ""}.
+          </p>
+          <Button size="sm" className="rounded-lg" onClick={openManualPrefilled}>
+            Log time now
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            className="rounded-lg"
+            onClick={() => { dismissNudgeToday(); setNudgeDismissed(true); }}
+          >
+            Dismiss
+          </Button>
+        </div>
+      )}
+
       {/* Primary actions — always visible, open as dropdowns */}
       <div className="flex flex-wrap items-center gap-2">
         <Popover open={showManual} onOpenChange={(o) => { setShowManual(o); if (o) setShowFullStart(false); }}>
