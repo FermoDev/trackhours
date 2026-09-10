@@ -44,7 +44,7 @@ function UnsubscribePage() {
       .then(async (res) => {
         const data = await res.json().catch(() => ({}))
         if (!res.ok || data.valid === false) {
-          setState(data.reason === 'already_used' || data.used ? 'used' : 'invalid')
+          setState(data.reason === 'already_unsubscribed' ? 'used' : 'invalid')
           return
         }
         if (data.email) setEmail(data.email)
