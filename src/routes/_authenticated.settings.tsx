@@ -222,6 +222,52 @@ function SettingsPage() {
 
       <Card>
         <CardHeader className="pb-3">
+          <CardTitle className="text-base flex items-center gap-2"><Bell className="h-4 w-4 text-muted-foreground" />Reminders</CardTitle>
+          <p className="text-xs text-muted-foreground pt-1">Gentle nudges so you don't forget to log your time</p>
+        </CardHeader>
+        <CardContent className="space-y-5">
+          <div className="flex items-start justify-between gap-4">
+            <div className="space-y-0.5">
+              <Label htmlFor="dailyEnabled">Daily reminder</Label>
+              <p className="text-xs text-muted-foreground">
+                A browser notification if you haven't logged time that day (only while the app is open).
+              </p>
+              {permission === "denied" && (
+                <p className="text-xs text-destructive">
+                  Notifications are blocked in your browser — allow them for this site to use this.
+                </p>
+              )}
+            </div>
+            <Switch id="dailyEnabled" checked={dailyEnabled} onCheckedChange={handleToggleDaily} />
+          </div>
+
+          {dailyEnabled && (
+            <div className="space-y-1.5 max-w-[180px]">
+              <Label htmlFor="dailyTime">Remind me at</Label>
+              <Input id="dailyTime" type="time" value={dailyTime} onChange={(e) => setDailyTime(e.target.value)} />
+            </div>
+          )}
+
+          <div className="flex items-start justify-between gap-4">
+            <div className="space-y-0.5">
+              <Label htmlFor="monthEndEmail">Month-end email reminders</Label>
+              <p className="text-xs text-muted-foreground">
+                An email on each of the last 5 days of the month if you have days with no time logged.
+              </p>
+            </div>
+            <Switch id="monthEndEmail" checked={monthEndEmail} onCheckedChange={setMonthEndEmail} />
+          </div>
+
+          <Button onClick={handleSaveReminders} disabled={savingReminders} className="rounded-xl">
+            {savingReminders && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+            {savingReminders ? "Saving…" : "Save reminders"}
+          </Button>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="pb-3">
+
           <CardTitle className="text-base flex items-center gap-2"><Landmark className="h-4 w-4 text-muted-foreground" />Billing info</CardTitle>
           <p className="text-xs text-muted-foreground pt-1">Used on invoices generated for you</p>
         </CardHeader>
