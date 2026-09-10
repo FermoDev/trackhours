@@ -320,7 +320,7 @@ function FreelancerDashboard() {
         <p className="text-muted-foreground text-sm mt-1">Here's your time tracking overview</p>
       </div>
 
-      {!nudgeDismissed && todayMinutes === 0 && !isRunning && (
+      {!nudgeDismissed && todayMinutes === 0 && !activeEntry && (
         <div className="flex items-center gap-3 rounded-xl border border-primary/25 bg-primary/5 px-4 py-3">
           <Clock className="h-4 w-4 text-primary shrink-0" />
           <p className="text-sm flex-1">
