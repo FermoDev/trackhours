@@ -16,6 +16,7 @@ import {
   requestNotificationPermission,
   showNotification,
 } from "@/lib/reminders";
+import { resubscribeEmails } from "@/lib/email/resubscribe.functions";
 
 export const Route = createFileRoute("/_authenticated/settings")({
   component: SettingsPage,
