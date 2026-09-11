@@ -93,7 +93,14 @@ export async function sendTemplateEmail(
     if (!stored) return { sent: false, reason: 'failed', error: 'Token storage failed' }
     unsubscribeToken = stored.token
   } else {
-    return { sent: false, reason: 'suppressed' }
+    // Token was used previously, but the address is not suppressed (re-subscribed):
+    // issue a fresh token instead of silently dropping the email.
+    unsubscribeToken = generateToken()
+    const { error: tokenError } = await supabase
+      .from('email_unsubscribe_tokens')
+      .update({ token: unsubscribeToken, used_at: null })
+      .eq('email', normalized)
+    if (tokenError) return { sent: false, reason: 'failed', error: 'Token refresh failed' }
   }
 
   const element = React.createElement(template.component, opts.templateData ?? {})
