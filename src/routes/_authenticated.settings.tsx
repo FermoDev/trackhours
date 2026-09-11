@@ -16,6 +16,7 @@ import {
   requestNotificationPermission,
   showNotification,
 } from "@/lib/reminders";
+import { resubscribeEmails } from "@/lib/email/resubscribe.functions";
 
 export const Route = createFileRoute("/_authenticated/settings")({
   component: SettingsPage,
@@ -94,6 +95,14 @@ function SettingsPage() {
       },
       { onConflict: "user_id" },
     );
+    if (!error && monthEndEmail) {
+      // Clear any previous one-click unsubscribe so emails can resume
+      try {
+        await resubscribeEmails();
+      } catch {
+        /* non-fatal */
+      }
+    }
     setSavingReminders(false);
     if (error) toast.error("Failed to save reminders");
     else toast.success("Reminder settings saved");
